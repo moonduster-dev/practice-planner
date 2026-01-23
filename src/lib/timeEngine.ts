@@ -11,10 +11,17 @@ export function calculateBlockDuration(block: SessionBlock): number {
     return block.duration || 0;
   }
 
-  // For rotation blocks, the total time is the time for ONE group to complete all drills
-  // All groups rotate simultaneously
+  // For rotation blocks
   if (block.rotationDrills && block.rotationDrills.length > 0) {
-    return block.rotationDrills.reduce((sum, drill) => sum + drill.duration, 0);
+    if (block.simultaneousStations) {
+      // Simultaneous mode: all stations run at the same time
+      // Total time = maximum station duration (since they run in parallel)
+      return Math.max(...block.rotationDrills.map(drill => drill.duration));
+    } else {
+      // Sequential rotation mode: groups rotate through all stations
+      // Total time = sum of all station durations (each group visits each station)
+      return block.rotationDrills.reduce((sum, drill) => sum + drill.duration, 0);
+    }
   }
 
   return 0;

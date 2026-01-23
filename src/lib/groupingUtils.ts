@@ -38,6 +38,50 @@ export function createGroups(
 }
 
 /**
+ * Creates partner pairs from present players
+ * Groups of 2, with one group of 3 if odd number of players
+ */
+export function createPartners(presentPlayers: Player[]): Group[] {
+  if (presentPlayers.length === 0) {
+    return [];
+  }
+
+  // Shuffle players for random pairing
+  const shuffled = [...presentPlayers].sort(() => Math.random() - 0.5);
+
+  const partners: Group[] = [];
+  const isOdd = shuffled.length % 2 === 1;
+
+  // Create pairs of 2
+  for (let i = 0; i < shuffled.length; i += 2) {
+    // Skip last player if odd - they'll be added to the last pair
+    if (isOdd && i === shuffled.length - 1) {
+      break;
+    }
+
+    const playerIds: string[] = [shuffled[i].id];
+
+    // Add second player
+    if (i + 1 < shuffled.length) {
+      playerIds.push(shuffled[i + 1].id);
+    }
+
+    partners.push({
+      id: uuidv4(),
+      name: `Partners ${partners.length + 1}`,
+      playerIds,
+    });
+  }
+
+  // If odd number, add the last player to the last pair (making it a trio)
+  if (isOdd && partners.length > 0) {
+    partners[partners.length - 1].playerIds.push(shuffled[shuffled.length - 1].id);
+  }
+
+  return partners;
+}
+
+/**
  * Gets present players from attendance record
  */
 export function getPresentPlayers(

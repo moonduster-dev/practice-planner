@@ -59,11 +59,16 @@ export interface Group {
 }
 
 export interface RotationDrill {
-  drillId: string;
-  duration: number;
-  coachId: string;
+  drillId: string; // Primary drill (for backwards compatibility)
+  drillIds?: string[]; // All drills in this station
+  drillDurations?: number[]; // Duration for each drill
+  stationName?: string; // Custom name for the station
+  duration: number; // Total duration for this station
+  coachId: string; // Primary coach (for backwards compatibility)
+  coachIds?: string[]; // All coaches assigned to this station
   groupIds: string[];
   equipmentIds: string[];
+  stationGroups?: Record<string, Group>; // Per-station group overrides (different partner compositions)
 }
 
 export interface SessionBlock {
@@ -74,10 +79,14 @@ export interface SessionBlock {
   drillId?: string;
   duration?: number;
   coachId?: string;
+  coachIds?: string[]; // Multiple coaches for single drill
   equipmentIds?: string[];
   notes?: string;
+  groupIds?: string[]; // Groups/partners assigned to this drill
+  drillGroups?: Record<string, Group>; // Per-drill group overrides (different partner compositions)
   // For rotation
   rotationDrills?: RotationDrill[];
+  simultaneousStations?: boolean; // If true, all stations run at same time (time = max station). If false, groups rotate through (time = sum of stations)
 }
 
 export interface DrillRating {

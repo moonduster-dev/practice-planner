@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { v4 as uuidv4 } from 'uuid';
 import { Button, Input, Card } from '@/components/ui';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { Practice, Player, Drill, Equipment, Coach, SessionBlock, Group } from '@/types';
@@ -11,6 +12,7 @@ import TimeEngineDisplay from '@/components/practices/TimeEngine';
 import AttendanceCheckIn from '@/components/practices/AttendanceCheckIn';
 import GroupManager from '@/components/practices/GroupManager';
 import DrillSequencer from '@/components/practices/DrillSequencer';
+import RotationBuilder from '@/components/practices/RotationBuilder';
 
 interface PracticePageProps {
   params: Promise<{ id: string }>;
@@ -36,6 +38,8 @@ export default function PracticePage({ params }: PracticePageProps) {
   const [groups, setGroups] = useState<Record<string, Group>>({});
   const [sessionBlocks, setSessionBlocks] = useState<SessionBlock[]>([]);
   const [status, setStatus] = useState<'draft' | 'active' | 'completed'>('draft');
+  const [showRotationBuilder, setShowRotationBuilder] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<SessionBlock | undefined>(undefined);
 
   useEffect(() => {
     const fetchPractice = async () => {
@@ -114,7 +118,43 @@ export default function PracticePage({ params }: PracticePageProps) {
   };
 
   const handleAddRotation = () => {
-    alert('Rotation builder coming soon! For now, add individual drills.');
+    setEditingBlock(undefined);
+    setShowRotationBuilder(true);
+  };
+
+  const handleEditRotation = (block: SessionBlock) => {
+    setEditingBlock(block);
+    setShowRotationBuilder(true);
+  };
+
+  const handleSaveRotation = (block: SessionBlock) => {
+    if (editingBlock) {
+      // Update existing block
+      setSessionBlocks(
+        sessionBlocks.map((b) => (b.id === block.id ? { ...block, order: b.order } : b))
+      );
+    } else {
+      // Add new block
+      setSessionBlocks([...sessionBlocks, { ...block, order: sessionBlocks.length }]);
+    }
+    setEditingBlock(undefined);
+  };
+
+  const handleCloseRotationBuilder = () => {
+    setShowRotationBuilder(false);
+    setEditingBlock(undefined);
+  };
+
+  const handleAddWaterBreak = () => {
+    const waterBreakBlock: SessionBlock = {
+      id: uuidv4(),
+      type: 'single',
+      order: sessionBlocks.length,
+      drillId: '', // No drill ID for water break
+      duration: 5,
+      notes: 'Water Break',
+    };
+    setSessionBlocks([...sessionBlocks, waterBreakBlock]);
   };
 
   if (loading) {
@@ -156,6 +196,26 @@ export default function PracticePage({ params }: PracticePageProps) {
           <p className="text-gray-600 capitalize">Status: {status}</p>
         </div>
         <div className="flex items-center space-x-3">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              const shareUrl = `${window.location.origin}/practices/${id}/coach-view`;
+              navigator.clipboard.writeText(shareUrl);
+              alert('Share link copied to clipboard!');
+            }}
+            className="text-blue-600 hover:bg-blue-50"
+          >
+            <svg className="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+            Share
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => window.open(`/practices/${id}/coach-view`, '_blank')}
+          >
+            View Schedule
+          </Button>
           <Button variant="secondary" onClick={() => router.push('/practices')} disabled={saving}>
             Back
           </Button>
@@ -236,8 +296,12 @@ export default function PracticePage({ params }: PracticePageProps) {
           drills={drills}
           coaches={coaches}
           equipment={equipment}
+          groups={groups}
+          attendance={attendance}
           onBlocksChange={setSessionBlocks}
           onAddRotation={handleAddRotation}
+          onEditRotation={handleEditRotation}
+          onAddWaterBreak={handleAddWaterBreak}
         />
       ) : (
         <Card>
@@ -245,11 +309,12 @@ export default function PracticePage({ params }: PracticePageProps) {
           <div className="space-y-2">
             {sessionBlocks.map((block, index) => {
               const drill = block.drillId ? drills.find((d) => d.id === block.drillId) : undefined;
+              const isWaterBreak = block.notes === 'Water Break';
               return (
-                <div key={block.id} className="p-3 bg-gray-50 rounded-lg">
+                <div key={block.id} className={`p-3 rounded-lg ${isWaterBreak ? 'bg-blue-50' : 'bg-gray-50'}`}>
                   <span className="text-gray-500 mr-2">{index + 1}.</span>
                   <span className="font-medium">
-                    {block.type === 'rotation' ? 'Rotation' : drill?.title || 'Unknown'}
+                    {isWaterBreak ? '💧 Water Break' : block.type === 'rotation' ? 'Rotation' : drill?.title || 'Unknown'}
                   </span>
                   <span className="text-gray-500 ml-2">({block.duration || 0} min)</span>
                 </div>
@@ -258,6 +323,17 @@ export default function PracticePage({ params }: PracticePageProps) {
           </div>
         </Card>
       )}
+
+      {/* Rotation Builder Modal */}
+      <RotationBuilder
+        isOpen={showRotationBuilder}
+        onClose={handleCloseRotationBuilder}
+        drills={drills}
+        coaches={coaches}
+        groups={groups}
+        onSave={handleSaveRotation}
+        editingBlock={editingBlock}
+      />
     </div>
   );
 }

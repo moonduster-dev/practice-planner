@@ -1,10 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import { Button, Card, Select, Badge, Modal } from '@/components/ui';
-import { Drill, Coach, Group, RotationDrill, SessionBlock } from '@/types';
-import { calculateRotation, validateRotation, generateRotationMatrix } from '@/lib/rotationCalculator';
+import React, { useState, useEffect } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core';
+import { Button, Card, Input, Badge, Modal } from '@/components/ui';
+import { Drill, Coach, Group, RotationDrill, SessionBlock, Player } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+import { useFirestoreCollection } from '@/hooks/useFirestore';
 
 interface RotationBuilderProps {
   isOpen: boolean;
@@ -13,12 +26,110 @@ interface RotationBuilderProps {
   coaches: Coach[];
   groups: Record<string, Group>;
   onSave: (block: SessionBlock) => void;
+  editingBlock?: SessionBlock; // Block to edit, if any
 }
 
-interface RotationDrillEntry {
+// A single drill within a station
+interface StationDrill {
+  id: string;
   drillId: string;
   duration: number;
-  coachId: string;
+}
+
+// A station can have multiple drills
+interface Station {
+  id: string;
+  name: string;
+  drills: StationDrill[];
+  coachIds: string[];
+  assignedGroupIds: string[];
+}
+
+// Draggable player component
+function DraggablePlayer({
+  playerId,
+  playerName,
+  groupId,
+  isFromOtherGroup,
+  onRemove,
+}: {
+  playerId: string;
+  playerName: string;
+  groupId: string;
+  isFromOtherGroup: boolean;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `player-${playerId}`,
+    data: { playerId, fromGroupId: groupId },
+  });
+
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+      }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between rounded px-2 py-1.5 text-xs cursor-grab active:cursor-grabbing ${
+        isDragging ? 'opacity-50' : ''
+      } ${isFromOtherGroup ? 'bg-amber-50 border border-amber-200' : 'bg-purple-50'}`}
+      {...listeners}
+      {...attributes}
+    >
+      <div className="flex items-center gap-1.5">
+        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+        </svg>
+        <span className={isFromOtherGroup ? 'text-amber-700' : 'text-gray-700'}>
+          {playerName}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="p-0.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+        title="Remove from rotation"
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// Droppable group container
+function DroppableGroup({
+  group,
+  children,
+  isOver,
+}: {
+  group: Group;
+  children: React.ReactNode;
+  isOver: boolean;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: `group-${group.id}`,
+    data: { groupId: group.id },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`bg-white rounded-lg border-2 p-3 transition-colors ${
+        isOver ? 'border-purple-500 bg-purple-50' : 'border-purple-200'
+      }`}
+    >
+      {children}
+    </div>
+  );
 }
 
 export default function RotationBuilder({
@@ -28,157 +139,944 @@ export default function RotationBuilder({
   coaches,
   groups,
   onSave,
+  editingBlock,
 }: RotationBuilderProps) {
-  const [rotationDrills, setRotationDrills] = useState<RotationDrillEntry[]>([]);
+  const { data: players } = useFirestoreCollection<Player>('players');
+  const [rotationName, setRotationName] = useState('');
+  const [stations, setStations] = useState<Station[]>([]);
+  const [initialized, setInitialized] = useState(false);
+  const [showRotationPartnerEditor, setShowRotationPartnerEditor] = useState(false);
+  // Rotation-level partner groups - these override practice groups for this entire rotation
+  const [rotationGroups, setRotationGroups] = useState<Record<string, Group>>({});
+  // Simultaneous mode: all stations run at same time (time = max), vs rotation mode (time = sum)
+  const [simultaneousStations, setSimultaneousStations] = useState(false);
   const groupArray = Object.values(groups);
 
-  const handleAddDrill = () => {
+  // Drag and drop state for partner editor
+  const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
+  const [overGroupId, setOverGroupId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const playerId = active.data.current?.playerId;
+    if (playerId) {
+      setActivePlayerId(playerId);
+    }
+  };
+
+  const handleDragOver = (event: { over: { data: { current?: { groupId?: string } } } | null }) => {
+    const groupId = event.over?.data?.current?.groupId;
+    setOverGroupId(groupId || null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActivePlayerId(null);
+    setOverGroupId(null);
+
+    if (!over) return;
+
+    const playerId = active.data.current?.playerId;
+    const fromGroupId = active.data.current?.fromGroupId;
+    const toGroupId = over.data.current?.groupId;
+
+    if (playerId && fromGroupId && toGroupId && fromGroupId !== toGroupId) {
+      handleMovePlayerToGroup(fromGroupId, toGroupId, playerId);
+    }
+  };
+
+  // Check if we're in partners mode (groups with 2-3 players each)
+  const isPartnersMode = groupArray.length > 0 && groupArray.every((g) => g.playerIds.length <= 3);
+
+  // Helper to get player name
+  const getPlayerName = (playerId: string) => {
+    return players.find((p) => p.id === playerId)?.name || 'Unknown';
+  };
+
+  // Initialize state when editing an existing block
+  React.useEffect(() => {
+    if (isOpen && editingBlock && !initialized) {
+      // Load data from the editing block
+      setRotationName(editingBlock.notes || '');
+      setSimultaneousStations(editingBlock.simultaneousStations || false);
+
+      if (editingBlock.rotationDrills && editingBlock.rotationDrills.length > 0) {
+        // Load rotation-level groups from the first station that has them
+        // (they should be the same across all stations in a rotation)
+        const firstWithGroups = editingBlock.rotationDrills.find(rd => rd.stationGroups);
+        if (firstWithGroups?.stationGroups) {
+          setRotationGroups(firstWithGroups.stationGroups);
+        } else {
+          // Initialize from practice groups
+          const initialGroups: Record<string, Group> = {};
+          Object.values(groups).forEach((g) => {
+            initialGroups[g.id] = { ...g, playerIds: [...g.playerIds] };
+          });
+          setRotationGroups(initialGroups);
+        }
+
+        const loadedStations: Station[] = editingBlock.rotationDrills.map((rd, index) => {
+          // Build drills array from drillIds or fall back to single drillId
+          const drillIds = rd.drillIds || [rd.drillId];
+          const drillDurations = rd.drillDurations || [rd.duration];
+
+          const stationDrills: StationDrill[] = drillIds.map((dId, i) => ({
+            id: uuidv4(),
+            drillId: dId,
+            duration: drillDurations[i] || drills.find(d => d.id === dId)?.baseDuration || 10,
+          }));
+
+          return {
+            id: uuidv4(),
+            name: rd.stationName || `Station ${index + 1}`,
+            drills: stationDrills,
+            coachIds: rd.coachIds || (rd.coachId ? [rd.coachId] : []),
+            assignedGroupIds: rd.groupIds || [],
+          };
+        });
+        setStations(loadedStations);
+      }
+      setInitialized(true);
+    } else if (!isOpen) {
+      // Reset initialized flag when modal closes
+      setInitialized(false);
+      setRotationGroups({});
+      setShowRotationPartnerEditor(false);
+      setSimultaneousStations(false);
+    }
+  }, [isOpen, editingBlock, initialized, drills, groups]);
+
+  const handleAddStation = () => {
     if (drills.length === 0) return;
-    setRotationDrills([
-      ...rotationDrills,
+    setStations([
+      ...stations,
       {
-        drillId: drills[0].id,
-        duration: drills[0].baseDuration,
-        coachId: coaches[0]?.id || '',
+        id: uuidv4(),
+        name: `Station ${stations.length + 1}`,
+        drills: [
+          {
+            id: uuidv4(),
+            drillId: drills[0].id,
+            duration: drills[0].baseDuration,
+          },
+        ],
+        coachIds: [],
+        assignedGroupIds: [],
       },
     ]);
   };
 
-  const handleRemoveDrill = (index: number) => {
-    setRotationDrills(rotationDrills.filter((_, i) => i !== index));
+  const handleRemoveStation = (stationIndex: number) => {
+    setStations(stations.filter((_, i) => i !== stationIndex));
   };
 
-  const handleDrillChange = (index: number, field: keyof RotationDrillEntry, value: string | number) => {
-    const updated = [...rotationDrills];
+  const handleStationNameChange = (stationIndex: number, name: string) => {
+    const updated = [...stations];
+    updated[stationIndex].name = name;
+    setStations(updated);
+  };
+
+  // Add a drill to a station
+  const handleAddDrillToStation = (stationIndex: number) => {
+    if (drills.length === 0) return;
+    const updated = [...stations];
+    updated[stationIndex].drills.push({
+      id: uuidv4(),
+      drillId: drills[0].id,
+      duration: drills[0].baseDuration,
+    });
+    setStations(updated);
+  };
+
+  // Remove a drill from a station
+  const handleRemoveDrillFromStation = (stationIndex: number, drillIndex: number) => {
+    const updated = [...stations];
+    if (updated[stationIndex].drills.length > 1) {
+      updated[stationIndex].drills = updated[stationIndex].drills.filter((_, i) => i !== drillIndex);
+      setStations(updated);
+    }
+  };
+
+  // Update a drill within a station
+  const handleDrillChange = (
+    stationIndex: number,
+    drillIndex: number,
+    field: 'drillId' | 'duration',
+    value: string | number
+  ) => {
+    const updated = [...stations];
+    const stationDrill = updated[stationIndex].drills[drillIndex];
+
     if (field === 'drillId') {
       const drill = drills.find((d) => d.id === value);
-      updated[index] = {
-        ...updated[index],
-        drillId: value as string,
-        duration: drill?.baseDuration || updated[index].duration,
-      };
+      stationDrill.drillId = value as string;
+      stationDrill.duration = drill?.baseDuration || stationDrill.duration;
     } else if (field === 'duration') {
-      updated[index] = { ...updated[index], duration: value as number };
-    } else {
-      updated[index] = { ...updated[index], coachId: value as string };
+      stationDrill.duration = value as number;
     }
-    setRotationDrills(updated);
+    setStations(updated);
   };
 
-  const rotationDrillsForCalc: RotationDrill[] = rotationDrills.map((rd) => ({
-    drillId: rd.drillId,
-    duration: rd.duration,
-    coachId: rd.coachId,
-    groupIds: groupArray.map((g) => g.id),
-    equipmentIds: [],
-  }));
+  // Toggle coach for a station
+  const handleToggleCoach = (stationIndex: number, coachId: string) => {
+    const updated = [...stations];
+    const station = updated[stationIndex];
+    if (station.coachIds.includes(coachId)) {
+      station.coachIds = station.coachIds.filter((id) => id !== coachId);
+    } else {
+      station.coachIds = [...station.coachIds, coachId];
+    }
+    setStations(updated);
+  };
 
-  const validationIssues = validateRotation(rotationDrillsForCalc, groupArray);
-  const rotationResult = calculateRotation(rotationDrillsForCalc, groupArray);
+  // Toggle group for a station
+  const handleToggleGroup = (stationIndex: number, groupId: string) => {
+    const updated = [...stations];
+    const station = updated[stationIndex];
+    if (station.assignedGroupIds.includes(groupId)) {
+      station.assignedGroupIds = station.assignedGroupIds.filter((id) => id !== groupId);
+    } else {
+      station.assignedGroupIds = [...station.assignedGroupIds, groupId];
+    }
+    setStations(updated);
+  };
 
-  const drillTitles = new Map(drills.map((d) => [d.id, d.title]));
-  const rotationMatrix = generateRotationMatrix(rotationDrillsForCalc, groupArray, drillTitles);
+  const handleSelectAllGroups = (stationIndex: number) => {
+    const updated = [...stations];
+    // Use rotation groups if they exist, otherwise practice groups
+    const effectiveGroups = getEffectiveGroups();
+    updated[stationIndex].assignedGroupIds = effectiveGroups.map((g) => g.id);
+    setStations(updated);
+  };
+
+  const handleClearGroups = (stationIndex: number) => {
+    const updated = [...stations];
+    updated[stationIndex].assignedGroupIds = [];
+    setStations(updated);
+  };
+
+  // Initialize rotation groups from practice groups when opening
+  const initializeRotationGroups = () => {
+    if (Object.keys(rotationGroups).length === 0 && groupArray.length > 0) {
+      const initialGroups: Record<string, Group> = {};
+      groupArray.forEach((g) => {
+        initialGroups[g.id] = { ...g, playerIds: [...g.playerIds] };
+      });
+      setRotationGroups(initialGroups);
+    }
+  };
+
+  // Rotation-level partner editing functions
+  const handleMovePlayerToGroup = (fromGroupId: string, toGroupId: string, playerId: string) => {
+    setRotationGroups((prev) => {
+      const updated = { ...prev };
+      // Remove from old group
+      if (updated[fromGroupId]) {
+        updated[fromGroupId] = {
+          ...updated[fromGroupId],
+          playerIds: updated[fromGroupId].playerIds.filter((id) => id !== playerId),
+        };
+      }
+      // Add to new group
+      if (updated[toGroupId]) {
+        updated[toGroupId] = {
+          ...updated[toGroupId],
+          playerIds: [...updated[toGroupId].playerIds, playerId],
+        };
+      }
+      return updated;
+    });
+  };
+
+  // Add a player to a rotation group
+  const handleAddPlayerToGroup = (toGroupId: string, playerId: string) => {
+    // Check if player already exists in any rotation group
+    const alreadyInRotation = Object.values(rotationGroups).some(
+      (g) => g.playerIds.includes(playerId)
+    );
+    if (alreadyInRotation) return;
+
+    setRotationGroups((prev) => {
+      const updated = { ...prev };
+      if (updated[toGroupId]) {
+        updated[toGroupId] = {
+          ...updated[toGroupId],
+          playerIds: [...updated[toGroupId].playerIds, playerId],
+        };
+      }
+      return updated;
+    });
+  };
+
+  // Remove a player from a rotation group
+  const handleRemovePlayerFromGroup = (groupId: string, playerId: string) => {
+    setRotationGroups((prev) => {
+      const updated = { ...prev };
+      if (updated[groupId]) {
+        updated[groupId] = {
+          ...updated[groupId],
+          playerIds: updated[groupId].playerIds.filter((id) => id !== playerId),
+        };
+      }
+      return updated;
+    });
+  };
+
+  // Rename a rotation group
+  const handleRenameRotationGroup = (groupId: string, newName: string) => {
+    setRotationGroups((prev) => {
+      const updated = { ...prev };
+      if (updated[groupId]) {
+        updated[groupId] = {
+          ...updated[groupId],
+          name: newName,
+        };
+      }
+      return updated;
+    });
+  };
+
+  // Get unassigned players (not in any rotation group)
+  const getUnassignedPlayers = (): { playerId: string; originalGroupName: string }[] => {
+    const playersInRotation = new Set(
+      Object.values(rotationGroups).flatMap((g) => g.playerIds)
+    );
+
+    const unassignedPlayers: { playerId: string; originalGroupName: string }[] = [];
+    groupArray.forEach((group) => {
+      group.playerIds.forEach((playerId) => {
+        if (!playersInRotation.has(playerId)) {
+          unassignedPlayers.push({ playerId, originalGroupName: group.name });
+        }
+      });
+    });
+
+    return unassignedPlayers;
+  };
+
+  // Get count of all players in practice groups
+  const getTotalPlayerCount = (): number => {
+    const allPlayerIds = new Set(groupArray.flatMap((g) => g.playerIds));
+    return allPlayerIds.size;
+  };
+
+  // Get count of players in rotation groups
+  const getRotationPlayerCount = (): number => {
+    const playersInRotation = new Set(
+      Object.values(rotationGroups).flatMap((g) => g.playerIds)
+    );
+    return playersInRotation.size;
+  };
+
+  // Reset rotation groups to match practice groups
+  const handleResetRotationGroups = () => {
+    const resetGroups: Record<string, Group> = {};
+    groupArray.forEach((g) => {
+      resetGroups[g.id] = { ...g, playerIds: [...g.playerIds] };
+    });
+    setRotationGroups(resetGroups);
+  };
+
+  // Check if rotation groups have been modified from practice groups
+  const hasModifiedPartners = (): boolean => {
+    if (Object.keys(rotationGroups).length === 0) return false;
+    return Object.keys(rotationGroups).some((gId) => {
+      const practiceGroup = groups[gId];
+      const rotationGroup = rotationGroups[gId];
+      if (!practiceGroup || !rotationGroup) return true;
+      // Check if player arrays differ
+      if (JSON.stringify([...practiceGroup.playerIds].sort()) !==
+          JSON.stringify([...rotationGroup.playerIds].sort())) {
+        return true;
+      }
+      return false;
+    });
+  };
+
+  // Get the effective groups for display (rotation groups if modified, otherwise practice groups)
+  const getEffectiveGroups = (): Group[] => {
+    if (Object.keys(rotationGroups).length > 0) {
+      return Object.values(rotationGroups);
+    }
+    return groupArray;
+  };
+
+  const handleAutoAssignGroups = () => {
+    const effectiveGroups = getEffectiveGroups();
+    if (effectiveGroups.length === 0 || stations.length === 0) return;
+    const updated = stations.map((station, index) => {
+      const groupIndex = index % effectiveGroups.length;
+      return {
+        ...station,
+        assignedGroupIds: [effectiveGroups[groupIndex].id],
+      };
+    });
+    setStations(updated);
+  };
+
+  const handleAssignAllGroupsToAll = () => {
+    const effectiveGroups = getEffectiveGroups();
+    const updated = stations.map((station) => ({
+      ...station,
+      assignedGroupIds: effectiveGroups.map((g) => g.id),
+    }));
+    setStations(updated);
+  };
 
   const handleSave = () => {
-    if (validationIssues.length > 0) {
-      alert('Please fix validation issues before saving');
+    if (stations.length === 0) {
+      alert('Add at least one station to the rotation');
       return;
     }
 
+    // Check if rotation groups have been modified
+    const partnersModified = hasModifiedPartners();
+
+    // Convert stations to RotationDrill format
+    // Each station becomes one RotationDrill, with drillId being the first drill
+    // and additional info stored in extended fields
+    const rotationDrillsForSave: RotationDrill[] = stations.map((station) => {
+      const totalDuration = station.drills.reduce((sum, d) => sum + d.duration, 0);
+      // Build station-specific groups from the rotation groups
+      // Only include the groups that are assigned to this station
+      const stationGroupsToSave: Record<string, Group> | undefined = partnersModified
+        ? Object.fromEntries(
+            station.assignedGroupIds
+              .filter((gId) => rotationGroups[gId])
+              .map((gId) => [gId, rotationGroups[gId]])
+          )
+        : undefined;
+
+      // Use effective groups for default group IDs
+      const effectiveGroups = getEffectiveGroups();
+      const rotationDrill: RotationDrill = {
+        drillId: station.drills[0]?.drillId || '',
+        drillIds: station.drills.map((d) => d.drillId), // All drills in this station
+        drillDurations: station.drills.map((d) => d.duration), // Duration for each drill
+        stationName: station.name,
+        duration: totalDuration,
+        coachId: station.coachIds[0] || '',
+        coachIds: station.coachIds,
+        groupIds: station.assignedGroupIds.length > 0 ? station.assignedGroupIds : effectiveGroups.map((g) => g.id),
+        equipmentIds: [],
+      };
+      // Only include stationGroups if there are modified partners (Firestore doesn't allow undefined)
+      if (stationGroupsToSave && Object.keys(stationGroupsToSave).length > 0) {
+        rotationDrill.stationGroups = stationGroupsToSave;
+      }
+      return rotationDrill;
+    });
+
     const block: SessionBlock = {
-      id: uuidv4(),
+      id: editingBlock?.id || uuidv4(),
       type: 'rotation',
-      order: 0,
-      rotationDrills: rotationDrillsForCalc,
+      order: editingBlock?.order || 0,
+      notes: rotationName || 'Rotation',
+      rotationDrills: rotationDrillsForSave,
     };
+    // Only include simultaneousStations if true (Firestore doesn't allow undefined)
+    if (simultaneousStations) {
+      block.simultaneousStations = true;
+    }
 
     onSave(block);
-    setRotationDrills([]);
+    setStations([]);
+    setRotationName('');
+    setRotationGroups({});
+    setSimultaneousStations(false);
     onClose();
   };
 
   const handleCancel = () => {
-    setRotationDrills([]);
+    setStations([]);
+    setRotationName('');
     onClose();
   };
 
+  const getDrillTitle = (drillId: string) => {
+    return drills.find((d) => d.id === drillId)?.title || 'Unknown';
+  };
+
+  const getCoachName = (coachId: string) => {
+    return coaches.find((c) => c.id === coachId)?.name || '';
+  };
+
+  const getGroupName = (groupId: string) => {
+    // Use rotation group name if modified, otherwise practice group name
+    if (Object.keys(rotationGroups).length > 0 && rotationGroups[groupId]) {
+      return rotationGroups[groupId].name;
+    }
+    return groups[groupId]?.name || 'Unknown';
+  };
+
+  // Calculate totals
+  const stationTimes = stations.map(station =>
+    station.drills.reduce((s, d) => s + d.duration, 0)
+  );
+  const totalTime = simultaneousStations
+    ? Math.max(0, ...stationTimes) // Max station time when running simultaneously
+    : stationTimes.reduce((sum, t) => sum + t, 0); // Sum of all stations when rotating
+  const totalDrills = stations.reduce((sum, station) => sum + station.drills.length, 0);
+
+  const isEditing = !!editingBlock;
+
   return (
-    <Modal isOpen={isOpen} onClose={handleCancel} title="Build Rotation" size="xl">
-      <div className="space-y-6">
-        {/* Info */}
+    <Modal isOpen={isOpen} onClose={handleCancel} title={isEditing ? "Edit Rotation Block" : "Build Rotation Block"} size="xl">
+      <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2">
+        {/* Rotation Name */}
+        <Input
+          id="rotationName"
+          label="Rotation Name"
+          value={rotationName}
+          onChange={(e) => setRotationName(e.target.value)}
+          placeholder="e.g., Hitting Stations, Fielding Circuit"
+        />
+
+        {/* Station Mode Toggle */}
+        <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+          <span className="text-sm font-medium text-gray-700">Station Mode:</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSimultaneousStations(false)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                !simultaneousStations
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-600 hover:border-gray-400'
+              }`}
+            >
+              Rotation
+            </button>
+            <button
+              type="button"
+              onClick={() => setSimultaneousStations(true)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                simultaneousStations
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-600 hover:border-gray-400'
+              }`}
+            >
+              Simultaneous
+            </button>
+          </div>
+          <span className="text-xs text-gray-500">
+            {simultaneousStations
+              ? 'All stations run at same time (time = longest station)'
+              : 'Groups rotate through stations (time = all stations combined)'}
+          </span>
+        </div>
+
+        {/* Warnings */}
         {groupArray.length === 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
             <p className="text-sm text-yellow-800">
-              Create groups first (in the Groups section) before building a rotation.
+              <strong>Tip:</strong> Create groups first (check in players and click Auto-Assign in the Groups section).
             </p>
           </div>
         )}
 
-        {/* Drills in Rotation */}
+        {coaches.length === 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <p className="text-sm text-yellow-800">
+              <strong>Tip:</strong> Add coaches in the Coaches page to assign them to stations.
+            </p>
+          </div>
+        )}
+
+        {drills.length === 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">
+              <strong>Required:</strong> Add drills in the Drills page first.
+            </p>
+          </div>
+        )}
+
+        {/* Rotation-Level Partner Editor */}
+        {groupArray.length > 0 && isPartnersMode && (
+          <div className="border border-purple-200 rounded-lg bg-purple-50/50">
+            <button
+              type="button"
+              onClick={() => {
+                initializeRotationGroups();
+                setShowRotationPartnerEditor(!showRotationPartnerEditor);
+              }}
+              className="w-full flex items-center justify-between p-3 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <svg className={`w-4 h-4 text-purple-600 transition-transform ${showRotationPartnerEditor ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="font-medium text-purple-900">Edit Partners for this Rotation</span>
+                {hasModifiedPartners() && (
+                  <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded">
+                    ✎ modified
+                  </span>
+                )}
+              </div>
+              <span className="text-sm text-purple-600">
+                {Object.keys(rotationGroups).length > 0 ? Object.values(rotationGroups).length : groupArray.length} groups
+              </span>
+            </button>
+
+            {showRotationPartnerEditor && (
+              <div className="p-4 border-t border-purple-200">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-purple-700">
+                    Set up partner groups for this entire rotation. Then assign groups to stations below.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResetRotationGroups}
+                    className="text-xs text-purple-600 hover:text-purple-800"
+                  >
+                    Reset to Practice Partners
+                  </button>
+                </div>
+
+                {/* Player count indicator */}
+                {(() => {
+                  const rotationCount = getRotationPlayerCount();
+                  const totalCount = getTotalPlayerCount();
+                  const unassigned = getUnassignedPlayers();
+                  const isComplete = rotationCount === totalCount;
+                  return (
+                    <div className={`text-xs mb-3 px-2 py-1 rounded ${
+                      isComplete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {isComplete ? (
+                        <span>✓ All {totalCount} players assigned</span>
+                      ) : (
+                        <span>⚠ {rotationCount} of {totalCount} players assigned ({unassigned.length} unassigned)</span>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <p className="text-xs text-purple-600 mb-2">
+                  Drag players between groups to reassign partners.
+                </p>
+
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {Object.values(rotationGroups).map((group) => {
+                      const practiceGroup = groups[group.id];
+                      const unassignedPlayers = getUnassignedPlayers();
+                      const isGroupOver = overGroupId === group.id;
+
+                      return (
+                        <DroppableGroup key={group.id} group={group} isOver={isGroupOver}>
+                          <div className="flex items-center gap-1 mb-2">
+                            <input
+                              type="text"
+                              value={group.name}
+                              onChange={(e) => handleRenameRotationGroup(group.id, e.target.value)}
+                              className="flex-1 text-sm font-medium text-purple-800 bg-transparent border-b border-transparent hover:border-purple-300 focus:border-purple-500 focus:outline-none px-0 py-0.5 min-w-0"
+                              title="Click to rename group"
+                            />
+                            <span className="text-xs text-purple-600">({group.playerIds.length})</span>
+                          </div>
+                          <div className="space-y-1 min-h-[40px]">
+                            {group.playerIds.map((playerId) => {
+                              const isFromOtherGroup = practiceGroup && !practiceGroup.playerIds.includes(playerId);
+                              return (
+                                <DraggablePlayer
+                                  key={playerId}
+                                  playerId={playerId}
+                                  playerName={getPlayerName(playerId)}
+                                  groupId={group.id}
+                                  isFromOtherGroup={isFromOtherGroup}
+                                  onRemove={() => handleRemovePlayerFromGroup(group.id, playerId)}
+                                />
+                              );
+                            })}
+                            {group.playerIds.length === 0 && (
+                              <p className="text-xs text-gray-400 italic px-2 py-2">Drop player here</p>
+                            )}
+                          </div>
+
+                          {/* Add unassigned player */}
+                          {unassignedPlayers.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-purple-100">
+                              <select
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleAddPlayerToGroup(group.id, e.target.value);
+                                  }
+                                }}
+                                className="w-full text-xs border border-purple-300 rounded px-2 py-1 bg-white text-purple-700"
+                              >
+                                <option value="">+ Add player...</option>
+                                {unassignedPlayers.map(({ playerId, originalGroupName }) => (
+                                  <option key={playerId} value={playerId}>
+                                    {getPlayerName(playerId)} ({originalGroupName})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </DroppableGroup>
+                      );
+                    })}
+                  </div>
+
+                  {/* Drag overlay - shows the player being dragged */}
+                  <DragOverlay>
+                    {activePlayerId ? (
+                      <div className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs bg-purple-100 border-2 border-purple-400 shadow-lg cursor-grabbing">
+                        <svg className="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                        </svg>
+                        <span className="text-purple-800 font-medium">
+                          {getPlayerName(activePlayerId)}
+                        </span>
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
+
+                {/* Unassigned players warning */}
+                {(() => {
+                  const unassigned = getUnassignedPlayers();
+                  if (unassigned.length === 0) return null;
+                  return (
+                    <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="text-xs font-medium text-amber-800 mb-1">
+                        Unassigned Players ({unassigned.length}):
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {unassigned.map(({ playerId, originalGroupName }) => (
+                          <span key={playerId} className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                            {getPlayerName(playerId)} <span className="text-amber-500">({originalGroupName})</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {hasModifiedPartners() && (
+                  <p className="mt-3 text-xs text-purple-700 bg-purple-100 rounded px-2 py-1">
+                    ✓ Partners modified for this rotation
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        {groupArray.length > 0 && stations.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 p-3 bg-gray-50 rounded-lg">
+            <span className="text-sm font-medium text-gray-700">Quick Actions:</span>
+            <Button size="sm" variant="secondary" onClick={handleAutoAssignGroups}>
+              Auto-Assign Groups
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleAssignAllGroupsToAll}>
+              All Groups to All Stations
+            </Button>
+          </div>
+        )}
+
+        {/* Stations */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-gray-900">Drills in Rotation</h4>
-            <Button size="sm" onClick={handleAddDrill} disabled={drills.length === 0}>
-              + Add Drill
+            <h4 className="font-medium text-gray-900">Stations ({stations.length})</h4>
+            <Button size="sm" onClick={handleAddStation} disabled={drills.length === 0}>
+              + Add Station
             </Button>
           </div>
 
-          {rotationDrills.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">
-              No drills added. Click &quot;Add Drill&quot; to start building.
-            </p>
+          {stations.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+              <p className="text-gray-500 mb-2">No stations added yet</p>
+              <p className="text-sm text-gray-400">
+                Click &quot;+ Add Station&quot; to create stations. Each station can have multiple drills.
+              </p>
+            </div>
           ) : (
-            <div className="space-y-3">
-              {rotationDrills.map((rd, index) => (
-                <Card key={index} padding="sm" className="bg-gray-50">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-sm font-medium text-gray-500 w-6">
-                      {index + 1}.
-                    </span>
+            <div className="space-y-4">
+              {stations.map((station, stationIndex) => (
+                <Card key={station.id} padding="sm" className="border-2 border-blue-200 bg-blue-50/30">
+                  <div className="space-y-4">
+                    {/* Station Header */}
+                    <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="info">Station {stationIndex + 1}</Badge>
+                        <input
+                          type="text"
+                          value={station.name}
+                          onChange={(e) => handleStationNameChange(stationIndex, e.target.value)}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm font-medium"
+                          placeholder="Station name"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveStation(stationIndex)}
+                        className="text-red-600 hover:bg-red-50"
+                      >
+                        Remove Station
+                      </Button>
+                    </div>
 
-                    <select
-                      value={rd.drillId}
-                      onChange={(e) => handleDrillChange(index, 'drillId', e.target.value)}
-                      className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                    >
-                      {drills.map((drill) => (
-                        <option key={drill.id} value={drill.id}>
-                          {drill.title} ({drill.category})
-                        </option>
-                      ))}
-                    </select>
+                    {/* Drills in this Station */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Drills in this Station ({station.drills.length})
+                        </label>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleAddDrillToStation(stationIndex)}
+                          disabled={drills.length === 0}
+                        >
+                          + Add Drill
+                        </Button>
+                      </div>
 
-                    <input
-                      type="number"
-                      min="1"
-                      max="60"
-                      value={rd.duration}
-                      onChange={(e) => handleDrillChange(index, 'duration', parseInt(e.target.value) || 1)}
-                      className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                    />
-                    <span className="text-xs text-gray-500">min</span>
+                      <div className="space-y-2 bg-white rounded-lg p-2">
+                        {station.drills.map((stationDrill, drillIndex) => (
+                          <div key={stationDrill.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                            <span className="text-xs font-medium text-gray-500 w-4">
+                              {drillIndex + 1}.
+                            </span>
+                            <select
+                              value={stationDrill.drillId}
+                              onChange={(e) => handleDrillChange(stationIndex, drillIndex, 'drillId', e.target.value)}
+                              className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            >
+                              {drills.map((drill) => (
+                                <option key={drill.id} value={drill.id}>
+                                  {drill.title} ({drill.category})
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              min="1"
+                              max="60"
+                              value={stationDrill.duration}
+                              onChange={(e) =>
+                                handleDrillChange(stationIndex, drillIndex, 'duration', parseInt(e.target.value) || 1)
+                              }
+                              className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            />
+                            <span className="text-xs text-gray-500">min</span>
+                            {station.drills.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDrillFromStation(stationIndex, drillIndex)}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Station total: {station.drills.reduce((sum, d) => sum + d.duration, 0)} minutes
+                      </p>
+                    </div>
 
-                    <select
-                      value={rd.coachId}
-                      onChange={(e) => handleDrillChange(index, 'coachId', e.target.value)}
-                      className="w-32 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                    >
-                      <option value="">No Coach</option>
-                      {coaches.map((coach) => (
-                        <option key={coach.id} value={coach.id}>
-                          {coach.name}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Coach Assignment */}
+                    {coaches.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Coaches at this Station
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {coaches.map((coach) => (
+                            <button
+                              key={coach.id}
+                              type="button"
+                              onClick={() => handleToggleCoach(stationIndex, coach.id)}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border-2 ${
+                                station.coachIds.includes(coach.id)
+                                  ? 'bg-green-100 border-green-500 text-green-800'
+                                  : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                              }`}
+                            >
+                              {coach.name}
+                              {station.coachIds.includes(coach.id) && ' ✓'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveDrill(index)}
-                      className="text-red-600"
-                    >
-                      Remove
-                    </Button>
+                    {/* Group Assignment */}
+                    {groupArray.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Groups at this Station
+                            {hasModifiedPartners() && (
+                              <span className="ml-2 text-xs text-purple-600 font-normal">(using modified partners)</span>
+                            )}
+                          </label>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectAllGroups(stationIndex)}
+                              className="text-xs text-blue-600 hover:underline"
+                            >
+                              Select All
+                            </button>
+                            <span className="text-gray-300">|</span>
+                            <button
+                              type="button"
+                              onClick={() => handleClearGroups(stationIndex)}
+                              className="text-xs text-gray-500 hover:underline"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {getEffectiveGroups().map((group) => (
+                            <button
+                              key={group.id}
+                              type="button"
+                              onClick={() => handleToggleGroup(stationIndex, group.id)}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border-2 ${
+                                station.assignedGroupIds.includes(group.id)
+                                  ? 'bg-blue-100 border-blue-500 text-blue-800'
+                                  : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                              }`}
+                            >
+                              {group.name} ({group.playerIds.length})
+                              {station.assignedGroupIds.includes(group.id) && ' ✓'}
+                            </button>
+                          ))}
+                        </div>
+                        {station.assignedGroupIds.length === 0 && (
+                          <p className="text-xs text-orange-500 mt-1">
+                            No groups selected - all groups will rotate through this station
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -186,84 +1084,92 @@ export default function RotationBuilder({
           )}
         </div>
 
-        {/* Validation Issues */}
-        {validationIssues.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <h4 className="font-medium text-red-800 mb-2">Issues to fix:</h4>
-            <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
-              {validationIssues.map((issue, index) => (
-                <li key={index}>{issue}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Rotation Summary */}
-        {rotationDrills.length > 0 && groupArray.length > 0 && validationIssues.length === 0 && (
-          <div>
-            <h4 className="font-medium text-gray-900 mb-3">Rotation Preview</h4>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <Card padding="sm">
-                <div className="text-2xl font-bold text-blue-600">
-                  {rotationResult.totalSessionTime} min
-                </div>
-                <div className="text-sm text-gray-500">Total Session Time</div>
-              </Card>
-              <Card padding="sm">
-                <div className="text-2xl font-bold text-green-600">
-                  {rotationResult.timePerGroup} min
-                </div>
-                <div className="text-sm text-gray-500">Time Per Group</div>
-              </Card>
+        {/* Summary */}
+        {stations.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium text-blue-900">Rotation Summary</h4>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                simultaneousStations
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-blue-100 text-blue-800'
+              }`}>
+                {simultaneousStations ? 'Simultaneous' : 'Rotation'}
+              </span>
             </div>
 
-            {/* Rotation Matrix */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-200 rounded-lg">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {rotationMatrix[0]?.map((header, index) => (
-                      <th
-                        key={index}
-                        className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase"
-                      >
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {rotationMatrix.slice(1).map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {row.map((cell, cellIndex) => (
-                        <td
-                          key={cellIndex}
-                          className={`px-3 py-2 text-sm ${
-                            cellIndex === 0 ? 'font-medium text-gray-900' : 'text-gray-600'
-                          }`}
-                        >
-                          {cell}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{stations.length}</div>
+                <div className="text-xs text-blue-700">Stations</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{totalDrills}</div>
+                <div className="text-xs text-blue-700">Total Drills</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{totalTime} min</div>
+                <div className="text-xs text-blue-700">
+                  {simultaneousStations ? 'Duration' : 'Total Time'}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{getEffectiveGroups().length}</div>
+                <div className="text-xs text-blue-700">Groups</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {new Set(stations.flatMap((s) => s.coachIds)).size}
+                </div>
+                <div className="text-xs text-blue-700">Coaches</div>
+              </div>
+            </div>
+
+            {/* Station Overview */}
+            <div className="space-y-2">
+              {stations.map((station, index) => {
+                const stationTime = station.drills.reduce((sum, d) => sum + d.duration, 0);
+                return (
+                  <div
+                    key={station.id}
+                    className="text-sm bg-white rounded p-3"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="info">#{index + 1}</Badge>
+                        <span className="font-medium">{station.name}</span>
+                        <span className="text-gray-500">({stationTime} min)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {station.coachIds.map((cId) => (
+                          <span key={cId} className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                            {getCoachName(cId)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-600 ml-8">
+                      Drills: {station.drills.map((d) => getDrillTitle(d.drillId)).join(' → ')}
+                    </div>
+                    <div className="text-xs text-gray-500 ml-8 mt-1">
+                      Groups: {station.assignedGroupIds.length > 0
+                        ? station.assignedGroupIds.map((id) => getGroupName(id)).join(', ')
+                        : 'All groups'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex justify-end space-x-3 pt-4 border-t">
+        <div className="flex justify-end space-x-3 pt-4 border-t bg-white sticky bottom-0">
           <Button variant="secondary" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={rotationDrills.length === 0 || validationIssues.length > 0}
-          >
-            Add Rotation to Practice
+          <Button onClick={handleSave} disabled={stations.length === 0}>
+            {isEditing ? 'Save Changes' : 'Add Rotation to Practice'}
           </Button>
         </div>
       </div>

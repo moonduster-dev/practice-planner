@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card } from '@/components/ui';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
@@ -27,6 +28,7 @@ export default function NewPracticePage() {
   const [sessionBlocks, setSessionBlocks] = useState<SessionBlock[]>([]);
   const [saving, setSaving] = useState(false);
   const [showRotationBuilder, setShowRotationBuilder] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<SessionBlock | undefined>(undefined);
 
   const handleToggleAttendance = (playerId: string) => {
     setAttendance((prev) => ({
@@ -60,11 +62,43 @@ export default function NewPracticePage() {
   };
 
   const handleAddRotation = () => {
+    setEditingBlock(undefined);
+    setShowRotationBuilder(true);
+  };
+
+  const handleEditRotation = (block: SessionBlock) => {
+    setEditingBlock(block);
     setShowRotationBuilder(true);
   };
 
   const handleSaveRotation = (block: SessionBlock) => {
-    setSessionBlocks([...sessionBlocks, { ...block, order: sessionBlocks.length }]);
+    if (editingBlock) {
+      // Update existing block
+      setSessionBlocks(
+        sessionBlocks.map((b) => (b.id === block.id ? { ...block, order: b.order } : b))
+      );
+    } else {
+      // Add new block
+      setSessionBlocks([...sessionBlocks, { ...block, order: sessionBlocks.length }]);
+    }
+    setEditingBlock(undefined);
+  };
+
+  const handleCloseRotationBuilder = () => {
+    setShowRotationBuilder(false);
+    setEditingBlock(undefined);
+  };
+
+  const handleAddWaterBreak = () => {
+    const waterBreakBlock: SessionBlock = {
+      id: uuidv4(),
+      type: 'single',
+      order: sessionBlocks.length,
+      drillId: '', // No drill ID for water break
+      duration: 5,
+      notes: 'Water Break',
+    };
+    setSessionBlocks([...sessionBlocks, waterBreakBlock]);
   };
 
   return (
@@ -142,18 +176,23 @@ export default function NewPracticePage() {
         drills={drills}
         coaches={coaches}
         equipment={equipment}
+        groups={groups}
+        attendance={attendance}
         onBlocksChange={setSessionBlocks}
         onAddRotation={handleAddRotation}
+        onEditRotation={handleEditRotation}
+        onAddWaterBreak={handleAddWaterBreak}
       />
 
       {/* Rotation Builder Modal */}
       <RotationBuilder
         isOpen={showRotationBuilder}
-        onClose={() => setShowRotationBuilder(false)}
+        onClose={handleCloseRotationBuilder}
         drills={drills}
         coaches={coaches}
         groups={groups}
         onSave={handleSaveRotation}
+        editingBlock={editingBlock}
       />
     </div>
   );
