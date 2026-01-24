@@ -79,7 +79,7 @@ export default function DrillsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Drill Library</h1>
+          <h1 className="text-2xl font-bold text-navy-900">Drill Library</h1>
           <p className="text-gray-600">{drills.length} drills total</p>
         </div>
         <Button onClick={handleAdd}>Add Drill</Button>
@@ -93,11 +93,11 @@ export default function DrillsPage() {
             onClick={() => setCategoryFilter(cat.value === categoryFilter ? 'all' : cat.value)}
             className={`p-3 rounded-lg text-center transition-colors ${
               cat.value === categoryFilter
-                ? 'bg-blue-100 border-2 border-blue-500'
-                : 'bg-white border border-gray-200 hover:bg-gray-50'
+                ? 'bg-gold-100 border-2 border-gold-500'
+                : 'bg-white border border-gray-200 hover:bg-navy-50'
             }`}
           >
-            <div className="text-lg font-bold text-gray-900">
+            <div className={`text-lg font-bold ${cat.value === categoryFilter ? 'text-navy-900' : 'text-gray-900'}`}>
               {categoryCounts[cat.value] || 0}
             </div>
             <div className="text-xs text-gray-500">{cat.label}</div>

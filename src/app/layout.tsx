@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Softball Practice Planner",
-  description: "Plan and manage your softball team practices",
+  title: "GC Falcons Practice Planner",
+  description: "Plan and manage softball practices - Our Lady of Good Counsel",
 };
 
 export default function RootLayout({

@@ -145,27 +145,32 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-navy-900 border-b border-navy-800 sticky top-0 z-10 shadow-lg">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Practice Plan
-              </h1>
-              <p className="text-gray-600">
-                {practice.date.toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </p>
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gold-400 rounded-full flex items-center justify-center">
+                <span className="text-navy-900 font-black text-lg">GC</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">
+                  GC Falcons Practice Plan
+                </h1>
+                <p className="text-navy-200">
+                  {practice.date.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </p>
+              </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-gold-400">
                 {practice.totalMinutes} min
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-navy-200">
                 {presentPlayers.length} players
               </div>
             </div>
@@ -177,20 +182,20 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
         {/* Groups/Partners Overview */}
         {groupArray.length > 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 className="font-semibold text-gray-900 mb-3">Groups / Partners</h2>
+            <h2 className="font-semibold text-navy-900 mb-3">Groups / Partners</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {groupArray.map((group) => (
                 <div
                   key={group.id}
-                  className="bg-purple-50 border border-purple-200 rounded-lg p-3"
+                  className="bg-navy-50 border border-navy-200 rounded-lg p-3"
                 >
-                  <div className="font-medium text-purple-900 text-sm mb-2">
+                  <div className="font-medium text-navy-900 text-sm mb-2">
                     {group.name}
                     {group.playerIds.length === 3 && (
-                      <span className="ml-1 text-xs text-purple-600">(trio)</span>
+                      <span className="ml-1 text-xs text-navy-600">(trio)</span>
                     )}
                   </div>
-                  <ul className="text-xs text-purple-700 space-y-0.5">
+                  <ul className="text-xs text-navy-700 space-y-0.5">
                     {getPlayerNamesInGroup(group).map((name, idx) => (
                       <li key={idx}>• {name}</li>
                     ))}
@@ -203,7 +208,7 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
 
         {/* Schedule */}
         <div className="space-y-4">
-          <h2 className="font-semibold text-gray-900">Schedule</h2>
+          <h2 className="font-semibold text-navy-900">Schedule</h2>
 
           {practice.sessionBlocks.map((block, index) => {
             const duration = calculateBlockDuration(block);
@@ -530,8 +535,14 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
-          Practice Planner
+        <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="w-6 h-6 bg-gold-400 rounded-full flex items-center justify-center">
+              <span className="text-navy-900 font-black text-xs">GC</span>
+            </div>
+            <span className="text-sm text-gray-500">GC Falcons Practice Planner</span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Our Lady of Good Counsel</p>
         </div>
       </div>
     </div>
