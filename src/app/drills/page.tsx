@@ -31,14 +31,23 @@ export default function DrillsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredDrills = useMemo(() => {
+    if (!searchQuery && categoryFilter === 'all') {
+      return drills;
+    }
+
+    const searchLower = searchQuery.toLowerCase().trim();
+
     return drills.filter((drill) => {
       const matchesCategory = categoryFilter === 'all' || drill.category === categoryFilter;
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch =
-        searchQuery === '' ||
-        drill.title.toLowerCase().includes(searchLower) ||
-        (drill.description && drill.description.toLowerCase().includes(searchLower));
-      return matchesCategory && matchesSearch;
+
+      if (!searchLower) {
+        return matchesCategory;
+      }
+
+      const titleMatch = drill.title?.toLowerCase().includes(searchLower) || false;
+      const descMatch = drill.description?.toLowerCase().includes(searchLower) || false;
+
+      return matchesCategory && (titleMatch || descMatch);
     });
   }, [drills, categoryFilter, searchQuery]);
 
