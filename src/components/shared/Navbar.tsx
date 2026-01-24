@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 const navItems = [
@@ -23,9 +24,13 @@ export default function Navbar() {
             {/* Logo */}
             <div className="flex-shrink-0 flex items-center">
               <Link href="/" className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gold-400 rounded-full flex items-center justify-center">
-                  <span className="text-navy-900 font-black text-lg">GC</span>
-                </div>
+                <Image
+                  src="/gc-logo.png"
+                  alt="GC Falcons Logo"
+                  width={40}
+                  height={40}
+                  className="rounded-full"
+                />
                 <div className="hidden sm:block">
                   <div className="text-lg font-bold text-white">GC Falcons</div>
                   <div className="text-xs text-gold-400 -mt-1">Practice Planner</div>

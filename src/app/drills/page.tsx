@@ -33,10 +33,11 @@ export default function DrillsPage() {
   const filteredDrills = useMemo(() => {
     return drills.filter((drill) => {
       const matchesCategory = categoryFilter === 'all' || drill.category === categoryFilter;
+      const searchLower = searchQuery.toLowerCase();
       const matchesSearch =
         searchQuery === '' ||
-        drill.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        drill.description.toLowerCase().includes(searchQuery.toLowerCase());
+        drill.title.toLowerCase().includes(searchLower) ||
+        (drill.description && drill.description.toLowerCase().includes(searchLower));
       return matchesCategory && matchesSearch;
     });
   }, [drills, categoryFilter, searchQuery]);

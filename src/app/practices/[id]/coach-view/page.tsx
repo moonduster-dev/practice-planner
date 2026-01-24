@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
+import Image from 'next/image';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Practice, Player, Drill, Equipment, Coach, SessionBlock, Group } from '@/types';
@@ -149,9 +150,13 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gold-400 rounded-full flex items-center justify-center">
-                <span className="text-navy-900 font-black text-lg">GC</span>
-              </div>
+              <Image
+                src="/gc-logo.png"
+                alt="GC Falcons Logo"
+                width={48}
+                height={48}
+                className="rounded-full"
+              />
               <div>
                 <h1 className="text-xl font-bold text-white">
                   GC Falcons Practice Plan
@@ -537,9 +542,13 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-gray-200 text-center">
           <div className="flex items-center justify-center space-x-2">
-            <div className="w-6 h-6 bg-gold-400 rounded-full flex items-center justify-center">
-              <span className="text-navy-900 font-black text-xs">GC</span>
-            </div>
+            <Image
+              src="/gc-logo.png"
+              alt="GC Falcons Logo"
+              width={24}
+              height={24}
+              className="rounded-full"
+            />
             <span className="text-sm text-gray-500">GC Falcons Practice Planner</span>
           </div>
           <p className="text-xs text-gray-400 mt-1">Our Lady of Good Counsel</p>

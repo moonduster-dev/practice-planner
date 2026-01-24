@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Card } from '@/components/ui';
 
 const quickActions = [
@@ -56,9 +57,13 @@ export default function Dashboard() {
       {/* Hero Section */}
       <div className="mb-8 bg-gradient-to-r from-navy-900 to-navy-800 rounded-xl p-6 sm:p-8 text-white shadow-lg">
         <div className="flex items-center space-x-4 mb-4">
-          <div className="w-16 h-16 bg-gold-400 rounded-full flex items-center justify-center shadow-md">
-            <span className="text-navy-900 font-black text-2xl">GC</span>
-          </div>
+          <Image
+            src="/gc-logo.png"
+            alt="GC Falcons Logo"
+            width={64}
+            height={64}
+            className="rounded-full shadow-md"
+          />
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">GC Falcons Softball</h1>
             <p className="text-gold-300 font-medium">Our Lady of Good Counsel</p>
