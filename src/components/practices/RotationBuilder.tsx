@@ -146,6 +146,7 @@ export default function RotationBuilder({
   const [stations, setStations] = useState<Station[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [showRotationPartnerEditor, setShowRotationPartnerEditor] = useState(false);
+  const [drillCategoryFilter, setDrillCategoryFilter] = useState<string>('all');
   // Rotation-level partner groups - these override practice groups for this entire rotation
   const [rotationGroups, setRotationGroups] = useState<Record<string, Group>>({});
   // Simultaneous mode: all stations run at same time (time = max), vs rotation mode (time = sum)
@@ -256,7 +257,8 @@ export default function RotationBuilder({
   }, [isOpen, editingBlock, initialized, drills, groups]);
 
   const handleAddStation = () => {
-    if (drills.length === 0) return;
+    const filteredDrills = getFilteredDrills();
+    if (filteredDrills.length === 0) return;
     setStations([
       ...stations,
       {
@@ -265,8 +267,8 @@ export default function RotationBuilder({
         drills: [
           {
             id: uuidv4(),
-            drillId: drills[0].id,
-            duration: drills[0].baseDuration,
+            drillId: filteredDrills[0].id,
+            duration: filteredDrills[0].baseDuration,
           },
         ],
         coachIds: [],
@@ -287,12 +289,13 @@ export default function RotationBuilder({
 
   // Add a drill to a station
   const handleAddDrillToStation = (stationIndex: number) => {
-    if (drills.length === 0) return;
+    const filteredDrills = getFilteredDrills();
+    if (filteredDrills.length === 0) return;
     const updated = [...stations];
     updated[stationIndex].drills.push({
       id: uuidv4(),
-      drillId: drills[0].id,
-      duration: drills[0].baseDuration,
+      drillId: filteredDrills[0].id,
+      duration: filteredDrills[0].baseDuration,
     });
     setStations(updated);
   };
@@ -606,6 +609,12 @@ export default function RotationBuilder({
     return drills.find((d) => d.id === drillId)?.title || 'Unknown';
   };
 
+  // Get drills filtered by category
+  const getFilteredDrills = () => {
+    if (drillCategoryFilter === 'all') return drills;
+    return drills.filter((d) => d.category === drillCategoryFilter);
+  };
+
   const getCoachName = (coachId: string) => {
     return coaches.find((c) => c.id === coachId)?.name || '';
   };
@@ -893,11 +902,35 @@ export default function RotationBuilder({
           </div>
         )}
 
+        {/* Drill Category Filter */}
+        {drills.length > 0 && (
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <span className="text-sm font-medium text-gray-700">Filter Drills:</span>
+            <select
+              value={drillCategoryFilter}
+              onChange={(e) => setDrillCategoryFilter(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="all">All Categories ({drills.length})</option>
+              <option value="warmup">Warmup ({drills.filter(d => d.category === 'warmup').length})</option>
+              <option value="hitting">Hitting ({drills.filter(d => d.category === 'hitting').length})</option>
+              <option value="fielding">Fielding ({drills.filter(d => d.category === 'fielding').length})</option>
+              <option value="pitching">Pitching ({drills.filter(d => d.category === 'pitching').length})</option>
+              <option value="catching">Catching ({drills.filter(d => d.category === 'catching').length})</option>
+              <option value="iq">Game IQ ({drills.filter(d => d.category === 'iq').length})</option>
+              <option value="games">Games ({drills.filter(d => d.category === 'games').length})</option>
+            </select>
+            <span className="text-xs text-gray-500">
+              {getFilteredDrills().length} drill{getFilteredDrills().length !== 1 ? 's' : ''} available
+            </span>
+          </div>
+        )}
+
         {/* Stations */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-medium text-gray-900">Stations ({stations.length})</h4>
-            <Button size="sm" onClick={handleAddStation} disabled={drills.length === 0}>
+            <Button size="sm" onClick={handleAddStation} disabled={getFilteredDrills().length === 0}>
               + Add Station
             </Button>
           </div>
@@ -946,7 +979,7 @@ export default function RotationBuilder({
                           size="sm"
                           variant="ghost"
                           onClick={() => handleAddDrillToStation(stationIndex)}
-                          disabled={drills.length === 0}
+                          disabled={getFilteredDrills().length === 0}
                         >
                           + Add Drill
                         </Button>
@@ -963,7 +996,13 @@ export default function RotationBuilder({
                               onChange={(e) => handleDrillChange(stationIndex, drillIndex, 'drillId', e.target.value)}
                               className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
                             >
-                              {drills.map((drill) => (
+                              {/* Show selected drill even if it's filtered out */}
+                              {!getFilteredDrills().find(d => d.id === stationDrill.drillId) && drills.find(d => d.id === stationDrill.drillId) && (
+                                <option value={stationDrill.drillId}>
+                                  {getDrillTitle(stationDrill.drillId)} ({drills.find(d => d.id === stationDrill.drillId)?.category}) ★
+                                </option>
+                              )}
+                              {getFilteredDrills().map((drill) => (
                                 <option key={drill.id} value={drill.id}>
                                   {drill.title} ({drill.category})
                                 </option>
