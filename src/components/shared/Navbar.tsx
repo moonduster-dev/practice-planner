@@ -11,6 +11,7 @@ const navItems = [
   { href: '/drills', label: 'Drills' },
   { href: '/equipment', label: 'Equipment' },
   { href: '/practices', label: 'Practices' },
+  { href: '/metrics', label: 'Metrics' },
 ];
 
 export default function Navbar() {
