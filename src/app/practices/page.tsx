@@ -9,7 +9,7 @@ import { Practice } from '@/types';
 
 export default function PracticesPage() {
   const router = useRouter();
-  const { data: practices, loading, error, remove, add } = useFirestoreCollection<Practice>('practices', {
+  const { data: practices, loading, error, remove, add, update } = useFirestoreCollection<Practice>('practices', {
     orderByField: 'date',
     orderDirection: 'desc',
   });
@@ -18,6 +18,7 @@ export default function PracticesPage() {
   const [practiceToCopy, setPracticeToCopy] = useState<Practice | null>(null);
   const [newDate, setNewDate] = useState('');
   const [copying, setCopying] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this practice?')) {
@@ -85,6 +86,18 @@ export default function PracticesPage() {
     }
   };
 
+  const handleFinalize = async (practice: Practice) => {
+    if (confirm('Finalize this practice? This will mark it as completed.')) {
+      await update(practice.id, { status: 'completed' });
+    }
+  };
+
+  const handleShare = (practiceId: string) => {
+    const url = `${window.location.origin}/practices/${practiceId}/coach-view`;
+    setShareUrl(url);
+    navigator.clipboard.writeText(url);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -142,6 +155,29 @@ export default function PracticesPage() {
                         {practice.status === 'completed' ? 'View' : 'Edit'}
                       </Button>
                     </Link>
+                    {practice.status !== 'completed' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleFinalize(practice)}
+                        className="text-green-600 hover:bg-green-50"
+                        title="Finalize practice"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleShare(practice.id)}
+                      title="Share practice"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -210,6 +246,54 @@ export default function PracticesPage() {
             </Button>
             <Button onClick={handleCopyPractice} disabled={copying || !newDate}>
               {copying ? 'Copying...' : 'Copy Practice'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Share URL Modal */}
+      <Modal
+        isOpen={!!shareUrl}
+        onClose={() => setShareUrl(null)}
+        title="Share Practice"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Share this link with coaches to view the practice plan:
+          </p>
+
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-sm text-gray-500 mb-1">Coach View URL:</p>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                readOnly
+                value={shareUrl || ''}
+                className="flex-1 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  if (shareUrl) {
+                    navigator.clipboard.writeText(shareUrl);
+                  }
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-sm text-green-700">
+              Link copied to clipboard!
+            </p>
+          </div>
+
+          <div className="flex justify-end pt-4">
+            <Button onClick={() => setShareUrl(null)}>
+              Done
             </Button>
           </div>
         </div>
