@@ -4,10 +4,19 @@ import { useState, useMemo } from 'react';
 import { Card, Button } from '@/components/ui';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { Practice, Player, Drill } from '@/types';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 type TimeRange = 'week' | 'month' | 'season';
 
 export default function MetricsPage() {
+  return (
+    <AuthGuard>
+      <MetricsPageContent />
+    </AuthGuard>
+  );
+}
+
+function MetricsPageContent() {
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
 
   const { data: practices, loading: practicesLoading } = useFirestoreCollection<Practice>('practices', {
