@@ -6,8 +6,17 @@ import { useRouter } from 'next/navigation';
 import { Button, Card, Badge, Modal, Input } from '@/components/ui';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { Practice } from '@/types';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 export default function PracticesPage() {
+  return (
+    <AuthGuard>
+      <PracticesPageContent />
+    </AuthGuard>
+  );
+}
+
+function PracticesPageContent() {
   const router = useRouter();
   const { data: practices, loading, error, remove, add, update } = useFirestoreCollection<Practice>('practices', {
     orderByField: 'date',

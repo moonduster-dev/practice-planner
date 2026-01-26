@@ -4,8 +4,17 @@ import { useState } from 'react';
 import { Button, Modal, Input, Card } from '@/components/ui';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { Coach } from '@/types';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 export default function CoachesPage() {
+  return (
+    <AuthGuard>
+      <CoachesPageContent />
+    </AuthGuard>
+  );
+}
+
+function CoachesPageContent() {
   const { data: coaches, loading, error, add, update, remove } = useFirestoreCollection<Coach>('coaches', {
     orderByField: 'name',
     orderDirection: 'asc',

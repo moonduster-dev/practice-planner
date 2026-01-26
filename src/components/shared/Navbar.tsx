@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { href: '/', label: 'Dashboard' },
@@ -16,6 +17,7 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, authEnabled, signIn, signOut } = useAuth();
 
   return (
     <nav className="bg-navy-900 border-b border-navy-800 shadow-lg">
@@ -62,6 +64,37 @@ export default function Navbar() {
                 );
               })}
             </div>
+
+            {/* Auth Section */}
+            {authEnabled && (
+              <div className="hidden sm:flex items-center ml-4">
+                {user ? (
+                  <div className="flex items-center space-x-3">
+                    {user.photoURL && (
+                      <img
+                        src={user.photoURL}
+                        alt={user.displayName || 'User'}
+                        className="w-8 h-8 rounded-full"
+                      />
+                    )}
+                    <span className="text-sm text-navy-100">{user.displayName?.split(' ')[0]}</span>
+                    <button
+                      onClick={() => signOut()}
+                      className="text-sm text-navy-300 hover:text-white transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => signIn()}
+                    className="text-sm text-navy-100 hover:text-white transition-colors"
+                  >
+                    Sign In
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -89,6 +122,24 @@ export default function Navbar() {
               </Link>
             );
           })}
+          {/* Mobile Auth */}
+          {authEnabled && (
+            user ? (
+              <button
+                onClick={() => signOut()}
+                className="flex-shrink-0 px-3 py-1.5 text-sm font-medium rounded-md text-navy-300 hover:bg-navy-800"
+              >
+                Sign Out
+              </button>
+            ) : (
+              <button
+                onClick={() => signIn()}
+                className="flex-shrink-0 px-3 py-1.5 text-sm font-medium rounded-md text-navy-100 hover:bg-navy-800"
+              >
+                Sign In
+              </button>
+            )
+          )}
         </div>
       </div>
     </nav>

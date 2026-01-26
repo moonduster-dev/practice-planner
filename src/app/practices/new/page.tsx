@@ -11,8 +11,17 @@ import AttendanceCheckIn from '@/components/practices/AttendanceCheckIn';
 import GroupManager from '@/components/practices/GroupManager';
 import DrillSequencer from '@/components/practices/DrillSequencer';
 import RotationBuilder from '@/components/practices/RotationBuilder';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 export default function NewPracticePage() {
+  return (
+    <AuthGuard>
+      <NewPracticePageContent />
+    </AuthGuard>
+  );
+}
+
+function NewPracticePageContent() {
   const router = useRouter();
 
   const { add: addPractice } = useFirestoreCollection<Practice>('practices');

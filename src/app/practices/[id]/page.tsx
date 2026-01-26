@@ -13,6 +13,7 @@ import AttendanceCheckIn from '@/components/practices/AttendanceCheckIn';
 import GroupManager from '@/components/practices/GroupManager';
 import DrillSequencer from '@/components/practices/DrillSequencer';
 import RotationBuilder from '@/components/practices/RotationBuilder';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 interface PracticePageProps {
   params: Promise<{ id: string }>;
@@ -20,6 +21,15 @@ interface PracticePageProps {
 
 export default function PracticePage({ params }: PracticePageProps) {
   const { id } = use(params);
+
+  return (
+    <AuthGuard>
+      <PracticePageContent id={id} />
+    </AuthGuard>
+  );
+}
+
+function PracticePageContent({ id }: { id: string }) {
   const router = useRouter();
 
   const { data: players } = useFirestoreCollection<Player>('players');

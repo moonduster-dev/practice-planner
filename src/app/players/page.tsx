@@ -6,8 +6,17 @@ import PlayerList from '@/components/players/PlayerList';
 import PlayerForm from '@/components/players/PlayerForm';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { Player } from '@/types';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 export default function PlayersPage() {
+  return (
+    <AuthGuard>
+      <PlayersPageContent />
+    </AuthGuard>
+  );
+}
+
+function PlayersPageContent() {
   const { data: players, loading, error, add, update, remove } = useFirestoreCollection<Player>('players', {
     orderByField: 'name',
     orderDirection: 'asc',

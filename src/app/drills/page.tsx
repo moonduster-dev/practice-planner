@@ -6,6 +6,7 @@ import DrillCard from '@/components/drills/DrillCard';
 import DrillForm from '@/components/drills/DrillForm';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { Drill, DrillCategory, Equipment } from '@/types';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 const categoryFilterOptions = [
   { value: 'all', label: 'All Categories' },
@@ -19,6 +20,14 @@ const categoryFilterOptions = [
 ];
 
 export default function DrillsPage() {
+  return (
+    <AuthGuard>
+      <DrillsPageContent />
+    </AuthGuard>
+  );
+}
+
+function DrillsPageContent() {
   const { data: drills, loading, error, add, update, remove } = useFirestoreCollection<Drill>('drills', {
     orderByField: 'title',
     orderDirection: 'asc',

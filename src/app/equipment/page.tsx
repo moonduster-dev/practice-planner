@@ -4,8 +4,17 @@ import { useState } from 'react';
 import { Button, Modal, Input, Card } from '@/components/ui';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { Equipment } from '@/types';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 export default function EquipmentPage() {
+  return (
+    <AuthGuard>
+      <EquipmentPageContent />
+    </AuthGuard>
+  );
+}
+
+function EquipmentPageContent() {
   const { data: equipment, loading, error, add, update, remove } = useFirestoreCollection<Equipment>('equipment', {
     orderByField: 'name',
     orderDirection: 'asc',
