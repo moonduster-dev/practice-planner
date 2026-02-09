@@ -11,6 +11,8 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  useDroppable,
+  useDraggable,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -208,6 +210,298 @@ function DrillLibraryItem({ drill, onAdd }: DrillLibraryItemProps) {
         + Add
       </Button>
     </div>
+  );
+}
+
+// Draggable player for drill group editor
+function EditorDraggablePlayer({
+  playerId,
+  playerName,
+  groupId,
+  isPartner,
+}: {
+  playerId: string;
+  playerName: string;
+  groupId: string;
+  isPartner: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `editor-${groupId}-${playerId}`,
+    data: { playerId, fromGroupId: groupId, isPartner },
+  });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1 rounded px-2 py-1 text-xs cursor-grab active:cursor-grabbing ${
+        isDragging ? 'opacity-50' : ''
+      } ${isPartner ? 'bg-purple-100' : 'bg-blue-100'}`}
+      {...listeners}
+      {...attributes}
+    >
+      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+      </svg>
+      <span className="text-gray-700">{playerName}</span>
+    </div>
+  );
+}
+
+// Droppable group container for drill editor
+function EditorDroppableGroup({
+  groupId,
+  isPartner,
+  isOver,
+  children,
+}: {
+  groupId: string;
+  isPartner: boolean;
+  isOver: boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: `editor-group-${groupId}`,
+    data: { groupId, isPartner },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg border-2 p-2 transition-colors min-h-[60px] ${
+        isOver
+          ? isPartner ? 'border-purple-500 bg-purple-100' : 'border-blue-500 bg-blue-100'
+          : isPartner ? 'border-purple-200 bg-white' : 'border-blue-200 bg-white'
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Drill Group Editor with drag and drop
+interface DrillGroupEditorProps {
+  editGroupIds: string[];
+  editDrillGroups: Record<string, Group>;
+  setEditDrillGroups: React.Dispatch<React.SetStateAction<Record<string, Group>>>;
+  groups: Record<string, Group>;
+  groupArray: Group[];
+  players: Player[];
+  onReset: () => void;
+}
+
+function DrillGroupEditor({
+  editGroupIds,
+  editDrillGroups,
+  setEditDrillGroups,
+  groups,
+  groupArray,
+  players,
+  onReset,
+}: DrillGroupEditorProps) {
+  const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
+  const [activePlayerName, setActivePlayerName] = useState<string>('');
+  const [activeIsPartner, setActiveIsPartner] = useState<boolean>(false);
+  const [overGroupId, setOverGroupId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const getPlayerName = (playerId: string) => {
+    return players.find((p) => p.id === playerId)?.name || 'Unknown';
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { playerId, isPartner } = event.active.data.current || {};
+    if (playerId) {
+      setActivePlayerId(playerId);
+      setActivePlayerName(getPlayerName(playerId));
+      setActiveIsPartner(isPartner || false);
+    }
+  };
+
+  const handleDragOver = (event: { over: { data: { current?: { groupId?: string } } } | null }) => {
+    setOverGroupId(event.over?.data?.current?.groupId || null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActivePlayerId(null);
+    setOverGroupId(null);
+
+    if (!over) return;
+
+    const playerId = active.data.current?.playerId;
+    const fromGroupId = active.data.current?.fromGroupId;
+    const toGroupId = over.data.current?.groupId;
+    const fromIsPartner = active.data.current?.isPartner;
+    const toIsPartner = over.data.current?.isPartner;
+
+    if (playerId && fromGroupId && toGroupId && fromGroupId !== toGroupId) {
+      // Only allow moves within same type
+      if (fromIsPartner === toIsPartner) {
+        setEditDrillGroups((prev) => {
+          const updated = { ...prev };
+          if (updated[fromGroupId]) {
+            updated[fromGroupId] = {
+              ...updated[fromGroupId],
+              playerIds: updated[fromGroupId].playerIds.filter((id) => id !== playerId),
+            };
+          }
+          if (updated[toGroupId]) {
+            updated[toGroupId] = {
+              ...updated[toGroupId],
+              playerIds: [...updated[toGroupId].playerIds, playerId],
+            };
+          }
+          return updated;
+        });
+      }
+    }
+  };
+
+  const handleRenameGroup = (groupId: string, newName: string) => {
+    setEditDrillGroups((prev) => ({
+      ...prev,
+      [groupId]: { ...prev[groupId], name: newName },
+    }));
+  };
+
+  // Separate groups and partners
+  const partnerIds = editGroupIds.filter(gId => groupArray.find(g => g.id === gId)?.type === 'partner');
+  const groupIds = editGroupIds.filter(gId => groupArray.find(g => g.id === gId)?.type !== 'partner');
+
+  const hasChanges = Object.keys(editDrillGroups).some((gId) => {
+    const practiceGroup = groups[gId];
+    const drillGroup = editDrillGroups[gId];
+    if (!practiceGroup || !drillGroup) return false;
+    return JSON.stringify([...practiceGroup.playerIds].sort()) !==
+           JSON.stringify([...drillGroup.playerIds].sort());
+  });
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="space-y-4">
+        {/* Groups Editor */}
+        {groupIds.length > 0 && (
+          <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-blue-900">Edit Groups for This Drill</h4>
+              <button type="button" onClick={onReset} className="text-xs text-blue-600 hover:text-blue-800">
+                Reset
+              </button>
+            </div>
+            <p className="text-xs text-blue-700 mb-2">Drag players between groups</p>
+            <div className="grid grid-cols-2 gap-2">
+              {groupIds.map((groupId) => {
+                const drillGroup = editDrillGroups[groupId];
+                if (!drillGroup) return null;
+                const isOver = overGroupId === groupId;
+                return (
+                  <EditorDroppableGroup key={groupId} groupId={groupId} isPartner={false} isOver={isOver}>
+                    <input
+                      type="text"
+                      value={drillGroup.name}
+                      onChange={(e) => handleRenameGroup(groupId, e.target.value)}
+                      className="w-full text-xs font-medium text-blue-800 bg-transparent border-b border-transparent hover:border-blue-300 focus:border-blue-500 focus:outline-none mb-1"
+                    />
+                    <div className="space-y-1 min-h-[30px]">
+                      {drillGroup.playerIds.map((playerId) => (
+                        <EditorDraggablePlayer
+                          key={playerId}
+                          playerId={playerId}
+                          playerName={getPlayerName(playerId)}
+                          groupId={groupId}
+                          isPartner={false}
+                        />
+                      ))}
+                      {drillGroup.playerIds.length === 0 && (
+                        <p className="text-xs text-gray-400 italic py-1">Drop here</p>
+                      )}
+                    </div>
+                  </EditorDroppableGroup>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Partners Editor */}
+        {partnerIds.length > 0 && (
+          <div className="border border-purple-200 rounded-lg p-3 bg-purple-50">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-purple-900">Edit Partners for This Drill</h4>
+              <button type="button" onClick={onReset} className="text-xs text-purple-600 hover:text-purple-800">
+                Reset
+              </button>
+            </div>
+            <p className="text-xs text-purple-700 mb-2">Drag players between partners</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {partnerIds.map((groupId) => {
+                const drillGroup = editDrillGroups[groupId];
+                if (!drillGroup) return null;
+                const isOver = overGroupId === groupId;
+                return (
+                  <EditorDroppableGroup key={groupId} groupId={groupId} isPartner={true} isOver={isOver}>
+                    <input
+                      type="text"
+                      value={drillGroup.name}
+                      onChange={(e) => handleRenameGroup(groupId, e.target.value)}
+                      className="w-full text-xs font-medium text-purple-800 bg-transparent border-b border-transparent hover:border-purple-300 focus:border-purple-500 focus:outline-none mb-1"
+                    />
+                    <div className="space-y-1 min-h-[30px]">
+                      {drillGroup.playerIds.map((playerId) => (
+                        <EditorDraggablePlayer
+                          key={playerId}
+                          playerId={playerId}
+                          playerName={getPlayerName(playerId)}
+                          groupId={groupId}
+                          isPartner={true}
+                        />
+                      ))}
+                      {drillGroup.playerIds.length === 0 && (
+                        <p className="text-xs text-gray-400 italic py-1">Drop here</p>
+                      )}
+                    </div>
+                  </EditorDroppableGroup>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {hasChanges && (
+          <p className="text-xs text-green-700 bg-green-100 rounded px-2 py-1">
+            ✓ Modified for this drill
+          </p>
+        )}
+      </div>
+
+      <DragOverlay>
+        {activePlayerId ? (
+          <div className={`flex items-center gap-1 rounded px-2 py-1 text-xs shadow-lg cursor-grabbing ${
+            activeIsPartner ? 'bg-purple-200 border-2 border-purple-400' : 'bg-blue-200 border-2 border-blue-400'
+          }`}>
+            <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
+            <span className="font-medium">{activePlayerName}</span>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
@@ -658,164 +952,167 @@ export default function DrillSequencer({
 
           {/* Groups/Partners */}
           {groupArray.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Assigned Groups/Partners
-                </label>
-                <div className="space-x-2">
-                  <button
-                    type="button"
-                    onClick={selectAllGroups}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    Select All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearAllGroups}
-                    className="text-xs text-gray-500 hover:text-gray-700"
-                  >
-                    Clear
-                  </button>
+            <div className="space-y-4">
+              {/* Groups Section */}
+              {groupArray.filter(g => g.type !== 'partner').length > 0 && (
+                <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-blue-900">
+                      Groups
+                    </label>
+                    <div className="space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const groupIds = groupArray.filter(g => g.type !== 'partner').map(g => g.id);
+                          setEditGroupIds(prev => [...new Set([...prev, ...groupIds])]);
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const groupIds = groupArray.filter(g => g.type !== 'partner').map(g => g.id);
+                          setEditGroupIds(prev => prev.filter(id => !groupIds.includes(id)));
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {groupArray.filter(g => g.type !== 'partner').map((group) => (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => toggleGroupSelection(group.id)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          editGroupIds.includes(group.id)
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {group.name} ({group.playerIds.length})
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {groupArray.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => toggleGroupSelection(group.id)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      editGroupIds.includes(group.id)
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {group.name}
-                    {group.playerIds.length === 3 && (
-                      <span className="ml-1 text-xs opacity-75">(trio)</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              )}
+
+              {/* Partners Section */}
+              {groupArray.filter(g => g.type === 'partner').length > 0 && (
+                <div className="border border-purple-200 rounded-lg p-3 bg-purple-50/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-purple-900">
+                      Partners
+                    </label>
+                    <div className="space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const partnerIds = groupArray.filter(g => g.type === 'partner').map(g => g.id);
+                          setEditGroupIds(prev => [...new Set([...prev, ...partnerIds])]);
+                        }}
+                        className="text-xs text-purple-600 hover:text-purple-800"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const partnerIds = groupArray.filter(g => g.type === 'partner').map(g => g.id);
+                          setEditGroupIds(prev => prev.filter(id => !partnerIds.includes(id)));
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {groupArray.filter(g => g.type === 'partner').map((group) => (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => toggleGroupSelection(group.id)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          editGroupIds.includes(group.id)
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {group.name}
+                        {group.playerIds.length === 3 && (
+                          <span className="ml-1 text-xs opacity-75">(trio)</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                </div>
+              )}
+
               {editGroupIds.length === 0 && (
-                <p className="mt-2 text-xs text-amber-600">
-                  No groups selected - all players will participate
+                <p className="text-xs text-amber-600">
+                  No groups or partners selected - all players will participate
                 </p>
               )}
 
-              {/* Edit Partners Button - show when groups are selected and in partners mode */}
-              {editGroupIds.length > 0 && isPartnersMode && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowPartnerEditor(!showPartnerEditor)}
-                    className="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
-                  >
-                    <svg className={`w-4 h-4 transition-transform ${showPartnerEditor ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                    {showPartnerEditor ? 'Hide Partner Editor' : 'Change Partners for this Drill'}
-                  </button>
-                </div>
-              )}
+              {/* Edit Groups/Partners Button */}
+              {editGroupIds.length > 0 && (() => {
+                const hasGroups = editGroupIds.some(id => groupArray.find(g => g.id === id)?.type !== 'partner');
+                const hasPartners = editGroupIds.some(id => groupArray.find(g => g.id === id)?.type === 'partner');
+                const buttonText = hasGroups && hasPartners
+                  ? 'Edit Groups & Partners'
+                  : hasPartners
+                  ? 'Edit Partners'
+                  : 'Edit Groups';
+                const buttonColor = hasPartners && !hasGroups ? 'text-purple-600 hover:text-purple-800' : 'text-blue-600 hover:text-blue-800';
+
+                return (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!showPartnerEditor) {
+                          // Initialize editDrillGroups with all selected groups/partners when opening
+                          const newDrillGroups: Record<string, Group> = { ...editDrillGroups };
+                          editGroupIds.forEach((gId) => {
+                            if (groups[gId] && !newDrillGroups[gId]) {
+                              newDrillGroups[gId] = { ...groups[gId], playerIds: [...groups[gId].playerIds] };
+                            }
+                          });
+                          setEditDrillGroups(newDrillGroups);
+                        }
+                        setShowPartnerEditor(!showPartnerEditor);
+                      }}
+                      className={`text-sm ${buttonColor} flex items-center gap-1`}
+                    >
+                      <svg className={`w-4 h-4 transition-transform ${showPartnerEditor ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                      {showPartnerEditor ? `Hide ${buttonText}` : `${buttonText} for this Drill`}
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
-          {/* Partner Editor - for changing partner compositions for this specific drill */}
+          {/* Partner/Group Editor - for changing compositions for this specific drill */}
           {showPartnerEditor && editGroupIds.length > 0 && (
-            <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-purple-900">
-                  Edit Partners for This Drill
-                </h4>
-                <button
-                  type="button"
-                  onClick={handleResetDrillGroups}
-                  className="text-xs text-purple-600 hover:text-purple-800"
-                >
-                  Reset to Practice Partners
-                </button>
-              </div>
-              <p className="text-xs text-purple-700 mb-3">
-                Drag players between groups or use dropdowns to reassign partners just for this drill.
-              </p>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {editGroupIds.map((groupId) => {
-                  const drillGroup = editDrillGroups[groupId];
-                  if (!drillGroup) return null;
-
-                  // Get all players in currently selected groups for move-to dropdown
-                  const allPlayersInSelectedGroups = editGroupIds.flatMap(
-                    (gId) => editDrillGroups[gId]?.playerIds || []
-                  );
-
-                  return (
-                    <div
-                      key={groupId}
-                      className="bg-white rounded-lg border border-purple-200 p-3"
-                    >
-                      <input
-                        type="text"
-                        value={drillGroup.name}
-                        onChange={(e) => handleRenameDrillGroup(groupId, e.target.value)}
-                        className="w-full text-sm font-medium text-purple-800 bg-transparent border-b border-transparent hover:border-purple-300 focus:border-purple-500 focus:outline-none px-0 py-0.5 mb-2"
-                        title="Click to rename group"
-                      />
-                      <div className="space-y-2">
-                        {drillGroup.playerIds.map((playerId) => (
-                          <div
-                            key={playerId}
-                            className="flex items-center justify-between bg-purple-50 rounded px-2 py-1"
-                          >
-                            <span className="text-sm text-gray-700">
-                              {getPlayerName(playerId)}
-                            </span>
-                            {/* Move to different group dropdown */}
-                            <select
-                              value=""
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  handleMovePlayerToGroup(groupId, e.target.value, playerId);
-                                }
-                              }}
-                              className="text-xs border border-purple-300 rounded px-1 py-0.5 bg-white"
-                            >
-                              <option value="">Move to...</option>
-                              {editGroupIds
-                                .filter((gId) => gId !== groupId)
-                                .map((gId) => (
-                                  <option key={gId} value={gId}>
-                                    {editDrillGroups[gId]?.name || groups[gId]?.name}
-                                  </option>
-                                ))}
-                            </select>
-                          </div>
-                        ))}
-                        {drillGroup.playerIds.length === 0 && (
-                          <p className="text-xs text-gray-400 italic">Empty</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Show if any changes made */}
-              {Object.keys(editDrillGroups).some((gId) => {
-                const practiceGroup = groups[gId];
-                const drillGroup = editDrillGroups[gId];
-                if (!practiceGroup || !drillGroup) return false;
-                return JSON.stringify([...practiceGroup.playerIds].sort()) !==
-                       JSON.stringify([...drillGroup.playerIds].sort());
-              }) && (
-                <p className="mt-3 text-xs text-purple-700 bg-purple-100 rounded px-2 py-1">
-                  ✓ Partners modified for this drill
-                </p>
-              )}
-            </div>
+            <DrillGroupEditor
+              editGroupIds={editGroupIds}
+              editDrillGroups={editDrillGroups}
+              setEditDrillGroups={setEditDrillGroups}
+              groups={groups}
+              groupArray={groupArray}
+              players={players}
+              onReset={handleResetDrillGroups}
+            />
           )}
 
           {/* Notes */}

@@ -56,6 +56,7 @@ export interface Group {
   id: string;
   name: string;
   playerIds: string[];
+  type?: 'group' | 'partner'; // Optional for backwards compatibility
 }
 
 export interface RotationDrill {

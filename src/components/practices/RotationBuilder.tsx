@@ -1083,54 +1083,124 @@ export default function RotationBuilder({
                       </div>
                     )}
 
-                    {/* Group Assignment */}
+                    {/* Group/Partner Assignment */}
                     {groupArray.length > 0 && (
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            Groups at this Station
-                            {hasModifiedPartners() && (
-                              <span className="ml-2 text-xs text-purple-600 font-normal">(using modified partners)</span>
-                            )}
-                          </label>
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleSelectAllGroups(stationIndex)}
-                              className="text-xs text-blue-600 hover:underline"
-                            >
-                              Select All
-                            </button>
-                            <span className="text-gray-300">|</span>
-                            <button
-                              type="button"
-                              onClick={() => handleClearGroups(stationIndex)}
-                              className="text-xs text-gray-500 hover:underline"
-                            >
-                              Clear
-                            </button>
+                      <div className="space-y-3">
+                        {/* Groups */}
+                        {getEffectiveGroups().filter(g => g.type !== 'partner').length > 0 && (
+                          <div className="border border-blue-200 rounded-lg p-2 bg-blue-50/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-medium text-blue-900">
+                                Groups
+                              </label>
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const groupIds = getEffectiveGroups().filter(g => g.type !== 'partner').map(g => g.id);
+                                    const updated = [...stations];
+                                    updated[stationIndex].assignedGroupIds = [...new Set([...station.assignedGroupIds, ...groupIds])];
+                                    setStations(updated);
+                                  }}
+                                  className="text-xs text-blue-600 hover:underline"
+                                >
+                                  All
+                                </button>
+                                <span className="text-gray-300">|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const groupIds = getEffectiveGroups().filter(g => g.type !== 'partner').map(g => g.id);
+                                    const updated = [...stations];
+                                    updated[stationIndex].assignedGroupIds = station.assignedGroupIds.filter(id => !groupIds.includes(id));
+                                    setStations(updated);
+                                  }}
+                                  className="text-xs text-gray-500 hover:underline"
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {getEffectiveGroups().filter(g => g.type !== 'partner').map((group) => (
+                                <button
+                                  key={group.id}
+                                  type="button"
+                                  onClick={() => handleToggleGroup(stationIndex, group.id)}
+                                  className={`px-2 py-1 rounded text-xs font-medium transition-colors border ${
+                                    station.assignedGroupIds.includes(group.id)
+                                      ? 'bg-blue-100 border-blue-500 text-blue-800'
+                                      : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                  }`}
+                                >
+                                  {group.name} ({group.playerIds.length})
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {getEffectiveGroups().map((group) => (
-                            <button
-                              key={group.id}
-                              type="button"
-                              onClick={() => handleToggleGroup(stationIndex, group.id)}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border-2 ${
-                                station.assignedGroupIds.includes(group.id)
-                                  ? 'bg-blue-100 border-blue-500 text-blue-800'
-                                  : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
-                              }`}
-                            >
-                              {group.name} ({group.playerIds.length})
-                              {station.assignedGroupIds.includes(group.id) && ' ✓'}
-                            </button>
-                          ))}
-                        </div>
+                        )}
+
+                        {/* Partners */}
+                        {getEffectiveGroups().filter(g => g.type === 'partner').length > 0 && (
+                          <div className="border border-purple-200 rounded-lg p-2 bg-purple-50/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-medium text-purple-900">
+                                Partners
+                                {hasModifiedPartners() && (
+                                  <span className="ml-2 text-xs text-purple-600 font-normal">(modified)</span>
+                                )}
+                              </label>
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const partnerIds = getEffectiveGroups().filter(g => g.type === 'partner').map(g => g.id);
+                                    const updated = [...stations];
+                                    updated[stationIndex].assignedGroupIds = [...new Set([...station.assignedGroupIds, ...partnerIds])];
+                                    setStations(updated);
+                                  }}
+                                  className="text-xs text-purple-600 hover:underline"
+                                >
+                                  All
+                                </button>
+                                <span className="text-gray-300">|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const partnerIds = getEffectiveGroups().filter(g => g.type === 'partner').map(g => g.id);
+                                    const updated = [...stations];
+                                    updated[stationIndex].assignedGroupIds = station.assignedGroupIds.filter(id => !partnerIds.includes(id));
+                                    setStations(updated);
+                                  }}
+                                  className="text-xs text-gray-500 hover:underline"
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {getEffectiveGroups().filter(g => g.type === 'partner').map((group) => (
+                                <button
+                                  key={group.id}
+                                  type="button"
+                                  onClick={() => handleToggleGroup(stationIndex, group.id)}
+                                  className={`px-2 py-1 rounded text-xs font-medium transition-colors border ${
+                                    station.assignedGroupIds.includes(group.id)
+                                      ? 'bg-purple-100 border-purple-500 text-purple-800'
+                                      : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                  }`}
+                                >
+                                  {group.name}
+                                  {group.playerIds.length === 3 && ' (trio)'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {station.assignedGroupIds.length === 0 && (
-                          <p className="text-xs text-orange-500 mt-1">
-                            No groups selected - all groups will rotate through this station
+                          <p className="text-xs text-orange-500">
+                            No groups/partners selected - all will rotate through this station
                           </p>
                         )}
                       </div>
