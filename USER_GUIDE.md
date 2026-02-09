@@ -17,6 +17,9 @@ A web application for planning and managing softball practices with drill schedu
 9. [Using Groups & Partners](#using-groups--partners)
 10. [Creating Rotations](#creating-rotations)
 11. [Sharing the Coach View](#sharing-the-coach-view)
+12. [Copying a Practice](#copying-a-practice)
+13. [Finalizing a Practice](#finalizing-a-practice)
+14. [Metrics Dashboard](#metrics-dashboard)
 
 ---
 
@@ -31,6 +34,7 @@ The navigation bar at the top provides quick access to all sections:
 - **Drills** - Your drill library
 - **Equipment** - Track equipment inventory
 - **Practices** - Create and manage practices
+- **Metrics** - View attendance and drill analytics
 
 <!-- Screenshot: Navigation bar -->
 
@@ -177,18 +181,23 @@ Only players marked present will be included in groups and partner assignments.
 
 <!-- Screenshot: Attendance check-in -->
 
-### Step 3: Set Up Groups/Partners
+### Step 3: Set Up Groups & Partners
 
-If you want to use groups or partners for drills:
+The Groups & Partners section lets you create both simultaneously for different drill types.
 
-1. Click **"Create Groups"** or **"Create Partners"**
-2. **Groups** - Divides players into larger groups (3-6 players each)
-3. **Partners** - Pairs players together (2 players each, with trios if odd number)
-4. Choose the number of groups/partners
-5. Click **"Generate"** to auto-assign players
-6. Drag and drop players between groups to customize
+**Creating Groups** (blue section):
+1. Set the number of groups using the **"#"** input
+2. Click **"Create"** to auto-assign present players
+3. Use **"Balance"** to even out group sizes
+4. **Drag and drop** players between groups to customize
 
-<!-- Screenshot: Group/Partner setup -->
+**Creating Partners** (purple section):
+1. Click **"Create"** to pair players (pairs of 2, with one trio if odd number)
+2. **Drag and drop** players between partner pairs to customize
+
+**You can have both groups AND partners active at the same time** - some drills can use groups while others use partners.
+
+<!-- Screenshot: Group/Partner setup with drag-and-drop -->
 
 ---
 
@@ -211,11 +220,17 @@ Click on any drill in your schedule to edit:
 
 - **Duration** - Adjust the time for this instance
 - **Coach(es)** - Assign one or more coaches
-- **Groups** - Select which groups do this drill
+- **Groups** - Select which groups do this drill (blue buttons)
+- **Partners** - Select which partners do this drill (purple buttons)
 - **Notes** - Add practice-specific notes
-- **Change Partners** - Modify partner assignments for just this drill
+- **Edit Players** - Click to open the drag-and-drop editor to customize player assignments for just this drill
 
-<!-- Screenshot: Drill edit modal -->
+**Assigning Groups or Partners:**
+- Groups are shown in a blue section with "Select All" and "Clear" buttons
+- Partners are shown in a purple section with "Select All" and "Clear" buttons
+- You can select any combination of groups and/or partners
+
+<!-- Screenshot: Drill edit modal with group and partner selection -->
 
 ### Reordering Drills
 
@@ -239,35 +254,48 @@ The **Time Engine** at the top shows:
 
 ## Using Groups & Partners
 
-### Practice-Level Groups
+### Practice-Level Groups & Partners
 
-Groups set at the practice level apply to all drills by default.
+The Groups & Partners panel has two separate sections that work independently:
 
-1. In the practice editor, find the **Groups/Partners** section
-2. Click **"Create Groups"** or **"Create Partners"**
-3. Set the number of groups
-4. Click **"Generate"** to auto-assign present players
-5. Drag players between groups to customize
+**Groups Section** (blue):
+- Use for team drills, stations, and activities with larger player groups
+- Set the number of groups with the **"#"** input
+- Click **"Create"** to auto-assign players
+- Use **"Balance"** to even out group sizes
+- Drag and drop players between groups to rebalance
 
-<!-- Screenshot: Practice-level group editor -->
+**Partners Section** (purple):
+- Use for pair drills, partner throwing, and activities requiring pairs
+- Click **"Create"** to automatically pair players
+- Creates pairs of 2, with one trio if there's an odd number
+- Drag and drop players between partner pairs to change pairings
 
-### Per-Drill Partner Changes
+**Key Feature**: You can have both groups AND partners at the same time. This lets you assign some drills to groups and others to partners in the same practice.
 
-You can modify partners for individual drills:
+<!-- Screenshot: Practice-level group and partner editor -->
+
+### Per-Drill Player Changes
+
+You can modify groups or partners for individual drills without affecting the practice-level assignments:
 
 1. Click on a drill in your schedule
-2. Click **"Change Partners for this Drill"**
-3. Move players between groups using the dropdown menus
-4. Drills with modified partners show a **"✎ modified"** badge
-5. Click **"Reset to Practice Partners"** to undo changes
+2. Select the groups and/or partners for this drill
+3. Click **"Edit Groups for this Drill"**, **"Edit Partners for this Drill"**, or **"Edit Groups & Partners for this Drill"** (depending on what you selected)
+4. **Drag and drop** players between groups/partners to customize
+5. The editor shows:
+   - Blue section for groups (if groups are selected)
+   - Purple section for partners (if partners are selected)
+6. Changes show **"✓ Modified for this drill"** indicator
+7. Click **"Reset"** to restore original practice assignments
 
-This is useful when certain drills need different pairings (e.g., skill-based matching).
+This is useful when certain drills need different groupings (e.g., skill-based matching for a specific drill).
 
-<!-- Screenshot: Per-drill partner editor -->
+<!-- Screenshot: Per-drill drag-and-drop editor -->
 
-### Renaming Groups
+### Renaming Groups & Partners
 
-Click on a group name to rename it (e.g., "Group A" → "Infielders").
+Click on any group or partner name to rename it (e.g., "Group A" → "Infielders" or "Partner 1" → "Battery Pairs").
 
 ---
 
@@ -309,14 +337,18 @@ Rotations allow multiple stations to run simultaneously with groups rotating thr
 
 <!-- Screenshot: Mode toggle -->
 
-### Modifying Partners for Rotations
+### Assigning Groups & Partners to Stations
 
-1. Click **"Change Partners for this Rotation"**
-2. Drag and drop players between groups
-3. These modified groups will be used for station assignments
-4. You can also rename groups here
+Each station can have groups and/or partners assigned:
 
-<!-- Screenshot: Rotation partner editor with drag-and-drop -->
+1. In the station settings, you'll see:
+   - **Groups section** (blue) - Select which groups visit this station
+   - **Partners section** (purple) - Select which partners visit this station
+2. Use **"All"** to select all groups or partners
+3. Use **"Clear"** to deselect all
+4. Click individual buttons to toggle selection
+
+<!-- Screenshot: Rotation station with group/partner assignment -->
 
 ### Summary Panel
 
@@ -371,6 +403,96 @@ Anyone with the link can view the schedule - no login required.
 
 ---
 
+## Copying a Practice
+
+Save time by duplicating an existing practice as a starting point.
+
+### How to Copy a Practice
+
+1. Navigate to **Practices**
+2. Find the practice you want to copy
+3. Click the **"Copy"** button
+4. Select a new date in the dialog
+5. Click **"Copy Practice"**
+
+### What Gets Copied
+
+- All scheduled drills and their order
+- Drill durations and coach assignments
+- Rotations and station configurations
+- Group/Partner structure
+
+### What Gets Reset
+
+- Attendance is cleared (you'll need to check in players again)
+- Practice status starts as draft
+
+This is useful for recurring practice formats or when you want to use a previous practice as a template.
+
+<!-- Screenshot: Copy Practice dialog -->
+
+---
+
+## Metrics Dashboard
+
+Navigate to **Metrics** to view analytics about your practices and players.
+
+### Time Range Filters
+
+Use the buttons at the top to filter data:
+- **Week** - Last 7 days
+- **Month** - Last 30 days
+- **Season** - All practices
+
+### Player Attendance
+
+View attendance statistics for each player:
+- Bar chart showing attendance percentage
+- Color-coded bars (green for high attendance, yellow/red for lower)
+- Present count vs total practices
+
+### Drill Categories
+
+See how practice time is distributed:
+- Pie chart showing category breakdown
+- Minutes spent on each drill category
+- Percentage of total practice time
+
+### Summary Statistics
+
+Quick stats at a glance:
+- Total practices in the selected period
+- Average attendance percentage
+- Total practice minutes
+- Most-used drill category
+
+<!-- Screenshot: Metrics Dashboard -->
+
+---
+
+## Finalizing a Practice
+
+Mark practices as complete when they're done.
+
+### How to Finalize
+
+1. Navigate to **Practices**
+2. Find the practice to finalize
+3. Click the **"Finalize"** button
+4. The status changes from active to completed
+
+### Practice Statuses
+
+- **Draft** - Practice is being planned
+- **Active** - Practice is ready or in progress
+- **Completed** - Practice has been finalized
+
+Completed practices are included in the Metrics Dashboard analytics.
+
+<!-- Screenshot: Finalize button on practices list -->
+
+---
+
 ## Tips & Best Practices
 
 ### Planning Efficient Practices
@@ -382,9 +504,12 @@ Anyone with the link can view the schedule - no login required.
 
 ### Managing Large Rosters
 
-1. Use **Partners mode** for individual skill work
-2. Use **Groups mode** (4-6 players) for team drills
-3. Adjust groups based on attendance each practice
+1. Create **both** groups and partners at the start of practice
+2. Use **Partners** (purple) for individual skill work and pair drills
+3. Use **Groups** (blue, 4-6 players) for team drills and stations
+4. **Drag and drop** players between groups/partners to balance teams
+5. Adjust groupings based on attendance each practice
+6. Use per-drill editing to customize for specific skill-based activities
 
 ### Using Videos Effectively
 
