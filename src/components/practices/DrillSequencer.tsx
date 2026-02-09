@@ -475,29 +475,49 @@ export default function DrillSequencer({
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         <h3 className="font-medium text-gray-900 mb-3">Drill Library</h3>
 
-        {/* Search & Filter */}
-        <div className="flex space-x-2 mb-3">
+        {/* Search */}
+        <div className="mb-3">
           <input
             type="text"
             placeholder="Search drills..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm"
+            className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
           />
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-2 py-1.5 border border-gray-300 rounded text-sm"
-          >
-            <option value="all">All</option>
-            <option value="warmup">Warmup</option>
-            <option value="hitting">Hitting</option>
-            <option value="fielding">Fielding</option>
-            <option value="pitching">Pitching</option>
-            <option value="catching">Catching</option>
-            <option value="iq">IQ</option>
-            <option value="games">Games</option>
-          </select>
+        </div>
+
+        {/* Category Filter Buttons */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {[
+            { value: 'all', label: 'All' },
+            { value: 'warmup', label: 'Warmup' },
+            { value: 'hitting', label: 'Hitting' },
+            { value: 'fielding', label: 'Fielding' },
+            { value: 'pitching', label: 'Pitching' },
+            { value: 'catching', label: 'Catching' },
+            { value: 'iq', label: 'IQ' },
+            { value: 'games', label: 'Games' },
+          ].map((cat) => {
+            const count = cat.value === 'all'
+              ? drills.length
+              : drills.filter(d => d.category === cat.value).length;
+            const isSelected = categoryFilter === cat.value;
+            if (count === 0 && cat.value !== 'all') return null;
+            return (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => setCategoryFilter(isSelected && cat.value !== 'all' ? 'all' : cat.value)}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors border ${
+                  isSelected
+                    ? 'bg-gold-100 border-gold-500 text-navy-900'
+                    : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                }`}
+              >
+                {cat.label} ({count})
+              </button>
+            );
+          })}
         </div>
 
         {/* Drill List */}

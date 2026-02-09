@@ -904,25 +904,44 @@ export default function RotationBuilder({
 
         {/* Drill Category Filter */}
         {drills.length > 0 && (
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <span className="text-sm font-medium text-gray-700">Filter Drills:</span>
-            <select
-              value={drillCategoryFilter}
-              onChange={(e) => setDrillCategoryFilter(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="all">All Categories ({drills.length})</option>
-              <option value="warmup">Warmup ({drills.filter(d => d.category === 'warmup').length})</option>
-              <option value="hitting">Hitting ({drills.filter(d => d.category === 'hitting').length})</option>
-              <option value="fielding">Fielding ({drills.filter(d => d.category === 'fielding').length})</option>
-              <option value="pitching">Pitching ({drills.filter(d => d.category === 'pitching').length})</option>
-              <option value="catching">Catching ({drills.filter(d => d.category === 'catching').length})</option>
-              <option value="iq">Game IQ ({drills.filter(d => d.category === 'iq').length})</option>
-              <option value="games">Games ({drills.filter(d => d.category === 'games').length})</option>
-            </select>
-            <span className="text-xs text-gray-500">
-              {getFilteredDrills().length} drill{getFilteredDrills().length !== 1 ? 's' : ''} available
-            </span>
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Filter Drills:</span>
+              <span className="text-xs text-gray-500">
+                {getFilteredDrills().length} drill{getFilteredDrills().length !== 1 ? 's' : ''} available
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: 'all', label: 'All' },
+                { value: 'warmup', label: 'Warmup' },
+                { value: 'hitting', label: 'Hitting' },
+                { value: 'fielding', label: 'Fielding' },
+                { value: 'pitching', label: 'Pitching' },
+                { value: 'catching', label: 'Catching' },
+                { value: 'iq', label: 'Game IQ' },
+                { value: 'games', label: 'Games' },
+              ].map((cat) => {
+                const count = cat.value === 'all'
+                  ? drills.length
+                  : drills.filter(d => d.category === cat.value).length;
+                const isSelected = drillCategoryFilter === cat.value;
+                return (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setDrillCategoryFilter(isSelected && cat.value !== 'all' ? 'all' : cat.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border-2 ${
+                      isSelected
+                        ? 'bg-gold-100 border-gold-500 text-navy-900'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                    }`}
+                  >
+                    {cat.label} ({count})
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
