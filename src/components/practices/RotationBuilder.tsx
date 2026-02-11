@@ -915,6 +915,42 @@ export default function RotationBuilder({
     : stationTimes.reduce((sum, t) => sum + t, 0); // Sum of all stations when rotating
   const totalDrills = stations.reduce((sum, station) => sum + station.drills.length, 0);
 
+  // Check if all stations have the same duration (needed for proper rotations)
+  const allStationsSameDuration = stations.length <= 1 || stationTimes.every(t => t === stationTimes[0]);
+  const maxStationTime = Math.max(0, ...stationTimes);
+
+  // Sync all stations to a target duration
+  const handleSyncStationDurations = (targetDuration: number) => {
+    const updated = stations.map(station => {
+      const currentTotal = station.drills.reduce((s, d) => s + d.duration, 0);
+      if (currentTotal === targetDuration) return station;
+
+      // Distribute the target duration across drills proportionally
+      if (station.drills.length === 1) {
+        return {
+          ...station,
+          drills: [{ ...station.drills[0], duration: targetDuration }],
+        };
+      }
+
+      // For multiple drills, scale proportionally
+      const scale = targetDuration / currentTotal;
+      let remaining = targetDuration;
+      const newDrills = station.drills.map((drill, i) => {
+        if (i === station.drills.length - 1) {
+          // Last drill gets the remainder to avoid rounding issues
+          return { ...drill, duration: Math.max(1, remaining) };
+        }
+        const newDuration = Math.max(1, Math.round(drill.duration * scale));
+        remaining -= newDuration;
+        return { ...drill, duration: newDuration };
+      });
+
+      return { ...station, drills: newDrills };
+    });
+    setStations(updated);
+  };
+
   const isEditing = !!editingBlock;
 
   return (
@@ -1232,6 +1268,34 @@ export default function RotationBuilder({
               + Add Station
             </Button>
           </div>
+
+          {/* Duration mismatch warning */}
+          {stations.length > 1 && !allStationsSameDuration && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-lg">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">Station durations don&apos;t match</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      For rotations to work smoothly, all stations should have the same duration.
+                      Current: {stationTimes.map((t, i) => `${stations[i].name}: ${t}min`).join(', ')}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleSyncStationDurations(maxStationTime)}
+                  className="flex-shrink-0"
+                >
+                  Sync All to {maxStationTime} min
+                </Button>
+              </div>
+            </div>
+          )}
 
           {stations.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
