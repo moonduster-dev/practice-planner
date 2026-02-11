@@ -294,7 +294,6 @@ function PracticePageContent({ id }: { id: string }) {
           players={players}
           attendance={attendance}
           groups={groups}
-          drillCount={sessionBlocks.filter((b) => b.type === 'rotation').length}
           onGroupsChange={status === 'completed' ? () => {} : setGroups}
         />
       </div>

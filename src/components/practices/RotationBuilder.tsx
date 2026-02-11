@@ -1601,7 +1601,9 @@ export default function RotationBuilder({
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{getEffectiveGroups().length}</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {new Set(stations.flatMap((s) => s.assignedGroupIds)).size}
+                </div>
                 <div className="text-xs text-blue-700">Groups</div>
               </div>
               <div className="text-center">

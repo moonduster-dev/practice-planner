@@ -16,13 +16,12 @@ import {
 } from '@dnd-kit/core';
 import { Player, Group } from '@/types';
 import { Button } from '@/components/ui';
-import { createGroups, createPartners, getPresentPlayers, balanceGroups, suggestGroupCount } from '@/lib/groupingUtils';
+import { createGroups, createPartners, getPresentPlayers, balanceGroups } from '@/lib/groupingUtils';
 
 interface GroupManagerProps {
   players: Player[];
   attendance: Record<string, boolean>;
   groups: Record<string, Group>;
-  drillCount: number;
   onGroupsChange: (groups: Record<string, Group>) => void;
 }
 
@@ -121,12 +120,10 @@ export default function GroupManager({
   players,
   attendance,
   groups,
-  drillCount,
   onGroupsChange,
 }: GroupManagerProps) {
   const presentPlayers = getPresentPlayers(players, attendance);
   const groupArray = Object.values(groups);
-  const suggestedCount = suggestGroupCount(presentPlayers.length, drillCount);
 
   // Separate groups and partners
   const existingGroups = groupArray.filter(g => g.type !== 'partner');
@@ -427,10 +424,6 @@ export default function GroupManager({
                   <Button size="sm" variant="secondary" onClick={handleBalanceGroups}>Balance</Button>
                 )}
               </div>
-
-              {suggestedCount > 0 && suggestedCount !== numberOfGroups && (
-                <p className="text-xs text-blue-600 mb-2">Suggested: {suggestedCount} groups</p>
-              )}
 
               {existingGroups.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2">

@@ -174,7 +174,6 @@ function NewPracticePageContent() {
           players={players}
           attendance={attendance}
           groups={groups}
-          drillCount={sessionBlocks.filter((b) => b.type === 'rotation').length}
           onGroupsChange={setGroups}
         />
       </div>
