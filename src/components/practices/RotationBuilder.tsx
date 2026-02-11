@@ -43,6 +43,7 @@ interface Station {
   drills: StationDrill[];
   coachIds: string[];
   assignedGroupIds: string[];
+  stationGroups?: Record<string, Group>; // Per-station group overrides
 }
 
 // Draggable player component
@@ -132,6 +133,292 @@ function DroppableGroup({
   );
 }
 
+// Draggable player for station group editor
+function StationEditorDraggablePlayer({
+  playerId,
+  playerName,
+  groupId,
+  isPartner,
+}: {
+  playerId: string;
+  playerName: string;
+  groupId: string;
+  isPartner: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `station-editor-${groupId}-${playerId}`,
+    data: { playerId, fromGroupId: groupId, isPartner },
+  });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1 rounded px-2 py-1 text-xs cursor-grab active:cursor-grabbing ${
+        isDragging ? 'opacity-50' : ''
+      } ${isPartner ? 'bg-purple-100' : 'bg-blue-100'}`}
+      {...listeners}
+      {...attributes}
+    >
+      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+      </svg>
+      <span className="text-gray-700">{playerName}</span>
+    </div>
+  );
+}
+
+// Droppable group for station editor
+function StationEditorDroppableGroup({
+  groupId,
+  isPartner,
+  isOver,
+  children,
+}: {
+  groupId: string;
+  isPartner: boolean;
+  isOver: boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: `station-editor-group-${groupId}`,
+    data: { groupId, isPartner },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg border-2 p-2 transition-colors min-h-[50px] ${
+        isOver
+          ? isPartner ? 'border-purple-500 bg-purple-100' : 'border-blue-500 bg-blue-100'
+          : isPartner ? 'border-purple-200 bg-white' : 'border-blue-200 bg-white'
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Station Group Editor Component
+interface StationGroupEditorProps {
+  station: Station;
+  stationIndex: number;
+  stationGroups: Record<string, Group>;
+  setStationGroups: React.Dispatch<React.SetStateAction<Record<string, Group>>>;
+  effectiveGroups: Group[];
+  players: Player[];
+  onSave: (groups: Record<string, Group>) => void;
+  onReset: () => void;
+}
+
+function StationGroupEditor({
+  station,
+  stationGroups,
+  setStationGroups,
+  effectiveGroups,
+  players,
+  onSave,
+  onReset,
+}: StationGroupEditorProps) {
+  const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
+  const [activePlayerName, setActivePlayerName] = useState<string>('');
+  const [activeIsPartner, setActiveIsPartner] = useState<boolean>(false);
+  const [overGroupId, setOverGroupId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const getPlayerName = (playerId: string) => {
+    return players.find((p) => p.id === playerId)?.name || 'Unknown';
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { playerId, isPartner } = event.active.data.current || {};
+    if (playerId) {
+      setActivePlayerId(playerId);
+      setActivePlayerName(getPlayerName(playerId));
+      setActiveIsPartner(isPartner || false);
+    }
+  };
+
+  const handleDragOver = (event: { over: { data: { current?: { groupId?: string } } } | null }) => {
+    setOverGroupId(event.over?.data?.current?.groupId || null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActivePlayerId(null);
+    setOverGroupId(null);
+
+    if (!over) return;
+
+    const playerId = active.data.current?.playerId;
+    const fromGroupId = active.data.current?.fromGroupId;
+    const toGroupId = over.data.current?.groupId;
+    const fromIsPartner = active.data.current?.isPartner;
+    const toIsPartner = over.data.current?.isPartner;
+
+    if (playerId && fromGroupId && toGroupId && fromGroupId !== toGroupId) {
+      if (fromIsPartner === toIsPartner) {
+        setStationGroups((prev) => {
+          const updated = { ...prev };
+          if (updated[fromGroupId]) {
+            updated[fromGroupId] = {
+              ...updated[fromGroupId],
+              playerIds: updated[fromGroupId].playerIds.filter((id) => id !== playerId),
+            };
+          }
+          if (updated[toGroupId]) {
+            updated[toGroupId] = {
+              ...updated[toGroupId],
+              playerIds: [...updated[toGroupId].playerIds, playerId],
+            };
+          }
+          return updated;
+        });
+      }
+    }
+  };
+
+  const handleRenameGroup = (groupId: string, newName: string) => {
+    setStationGroups((prev) => ({
+      ...prev,
+      [groupId]: { ...prev[groupId], name: newName },
+    }));
+  };
+
+  // Separate selected groups and partners
+  const partnerIds = station.assignedGroupIds.filter(gId => effectiveGroups.find(g => g.id === gId)?.type === 'partner');
+  const groupIds = station.assignedGroupIds.filter(gId => effectiveGroups.find(g => g.id === gId)?.type !== 'partner');
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="mt-3 space-y-3">
+        {/* Groups Editor */}
+        {groupIds.length > 0 && (
+          <div className="border border-blue-200 rounded-lg p-2 bg-blue-50">
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="text-xs font-medium text-blue-900">Edit Groups</h5>
+              <button type="button" onClick={onReset} className="text-xs text-blue-600 hover:text-blue-800">
+                Reset
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {groupIds.map((groupId) => {
+                const grp = stationGroups[groupId];
+                if (!grp) return null;
+                const isOver = overGroupId === groupId;
+                return (
+                  <StationEditorDroppableGroup key={groupId} groupId={groupId} isPartner={false} isOver={isOver}>
+                    <input
+                      type="text"
+                      value={grp.name}
+                      onChange={(e) => handleRenameGroup(groupId, e.target.value)}
+                      className="w-full text-xs font-medium text-blue-800 bg-transparent border-b border-transparent hover:border-blue-300 focus:border-blue-500 focus:outline-none mb-1"
+                    />
+                    <div className="space-y-1 min-h-[25px]">
+                      {grp.playerIds.map((playerId) => (
+                        <StationEditorDraggablePlayer
+                          key={playerId}
+                          playerId={playerId}
+                          playerName={getPlayerName(playerId)}
+                          groupId={groupId}
+                          isPartner={false}
+                        />
+                      ))}
+                      {grp.playerIds.length === 0 && (
+                        <p className="text-xs text-gray-400 italic">Drop here</p>
+                      )}
+                    </div>
+                  </StationEditorDroppableGroup>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Partners Editor */}
+        {partnerIds.length > 0 && (
+          <div className="border border-purple-200 rounded-lg p-2 bg-purple-50">
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="text-xs font-medium text-purple-900">Edit Partners</h5>
+              <button type="button" onClick={onReset} className="text-xs text-purple-600 hover:text-purple-800">
+                Reset
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {partnerIds.map((groupId) => {
+                const grp = stationGroups[groupId];
+                if (!grp) return null;
+                const isOver = overGroupId === groupId;
+                return (
+                  <StationEditorDroppableGroup key={groupId} groupId={groupId} isPartner={true} isOver={isOver}>
+                    <input
+                      type="text"
+                      value={grp.name}
+                      onChange={(e) => handleRenameGroup(groupId, e.target.value)}
+                      className="w-full text-xs font-medium text-purple-800 bg-transparent border-b border-transparent hover:border-purple-300 focus:border-purple-500 focus:outline-none mb-1"
+                    />
+                    <div className="space-y-1 min-h-[25px]">
+                      {grp.playerIds.map((playerId) => (
+                        <StationEditorDraggablePlayer
+                          key={playerId}
+                          playerId={playerId}
+                          playerName={getPlayerName(playerId)}
+                          groupId={groupId}
+                          isPartner={true}
+                        />
+                      ))}
+                      {grp.playerIds.length === 0 && (
+                        <p className="text-xs text-gray-400 italic">Drop here</p>
+                      )}
+                    </div>
+                  </StationEditorDroppableGroup>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Save Button */}
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="secondary" onClick={onReset}>
+            Reset
+          </Button>
+          <Button size="sm" onClick={() => onSave(stationGroups)}>
+            Save Changes
+          </Button>
+        </div>
+      </div>
+
+      <DragOverlay>
+        {activePlayerId ? (
+          <div className={`flex items-center gap-1 rounded px-2 py-1 text-xs shadow-lg cursor-grabbing ${
+            activeIsPartner ? 'bg-purple-200 border-2 border-purple-400' : 'bg-blue-200 border-2 border-blue-400'
+          }`}>
+            <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
+            <span className="font-medium">{activePlayerName}</span>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
 export default function RotationBuilder({
   isOpen,
   onClose,
@@ -156,6 +443,10 @@ export default function RotationBuilder({
   // Drag and drop state for partner editor
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [overGroupId, setOverGroupId] = useState<string | null>(null);
+
+  // Per-station group editor state
+  const [editingStationIndex, setEditingStationIndex] = useState<number>(-1);
+  const [stationGroupsBeingEdited, setStationGroupsBeingEdited] = useState<Record<string, Group>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -242,6 +533,7 @@ export default function RotationBuilder({
             drills: stationDrills,
             coachIds: rd.coachIds || (rd.coachId ? [rd.coachId] : []),
             assignedGroupIds: rd.groupIds || [],
+            stationGroups: rd.stationGroups,
           };
         });
         setStations(loadedStations);
@@ -535,13 +827,14 @@ export default function RotationBuilder({
     // and additional info stored in extended fields
     const rotationDrillsForSave: RotationDrill[] = stations.map((station) => {
       const totalDuration = station.drills.reduce((sum, d) => sum + d.duration, 0);
-      // Build station-specific groups from the rotation groups
+      // Build station-specific groups - prefer per-station groups over rotation groups
       // Only include the groups that are assigned to this station
-      const stationGroupsToSave: Record<string, Group> | undefined = partnersModified
+      const hasStationGroups = station.stationGroups && Object.keys(station.stationGroups).length > 0;
+      const stationGroupsToSave: Record<string, Group> | undefined = (hasStationGroups || partnersModified)
         ? Object.fromEntries(
             station.assignedGroupIds
-              .filter((gId) => rotationGroups[gId])
-              .map((gId) => [gId, rotationGroups[gId]])
+              .filter((gId) => (station.stationGroups?.[gId] || rotationGroups[gId]))
+              .map((gId) => [gId, station.stationGroups?.[gId] || rotationGroups[gId]])
           )
         : undefined;
 
@@ -963,6 +1256,11 @@ export default function RotationBuilder({
                           className="px-2 py-1 border border-gray-300 rounded text-sm font-medium"
                           placeholder="Station name"
                         />
+                        {station.stationGroups && Object.keys(station.stationGroups).length > 0 && (
+                          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                            ✎ Groups modified
+                          </span>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
@@ -1189,6 +1487,81 @@ export default function RotationBuilder({
                             No groups/partners selected - all will rotate through this station
                           </p>
                         )}
+
+                        {/* Edit Groups/Partners Button */}
+                        {station.assignedGroupIds.length > 0 && (() => {
+                          const hasGroups = station.assignedGroupIds.some(id => getEffectiveGroups().find(g => g.id === id)?.type !== 'partner');
+                          const hasPartners = station.assignedGroupIds.some(id => getEffectiveGroups().find(g => g.id === id)?.type === 'partner');
+                          const buttonText = hasGroups && hasPartners
+                            ? 'Edit Groups & Partners'
+                            : hasPartners
+                            ? 'Edit Partners'
+                            : 'Edit Groups';
+                          const buttonColor = hasPartners && !hasGroups ? 'text-purple-600 hover:text-purple-800' : 'text-blue-600 hover:text-blue-800';
+                          const isEditing = editingStationIndex === stationIndex;
+
+                          return (
+                            <div className="mt-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!isEditing) {
+                                    // Initialize station groups from effective groups
+                                    const stationGrps: Record<string, Group> = station.stationGroups ? { ...station.stationGroups } : {};
+                                    station.assignedGroupIds.forEach((gId) => {
+                                      const effectiveGroup = getEffectiveGroups().find(g => g.id === gId);
+                                      if (effectiveGroup && !stationGrps[gId]) {
+                                        stationGrps[gId] = { ...effectiveGroup, playerIds: [...effectiveGroup.playerIds] };
+                                      }
+                                    });
+                                    setStationGroupsBeingEdited(stationGrps);
+                                    setEditingStationIndex(stationIndex);
+                                  } else {
+                                    setEditingStationIndex(-1);
+                                  }
+                                }}
+                                className={`text-xs ${buttonColor} flex items-center gap-1`}
+                              >
+                                <svg className={`w-3 h-3 transition-transform ${isEditing ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                                {isEditing ? `Hide ${buttonText}` : `${buttonText} for this Station`}
+                              </button>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Station Group Editor */}
+                        {editingStationIndex === stationIndex && station.assignedGroupIds.length > 0 && (
+                          <StationGroupEditor
+                            station={station}
+                            stationIndex={stationIndex}
+                            stationGroups={stationGroupsBeingEdited}
+                            setStationGroups={setStationGroupsBeingEdited}
+                            effectiveGroups={getEffectiveGroups()}
+                            players={players}
+                            onSave={(updatedGroups) => {
+                              const updated = [...stations];
+                              updated[stationIndex].stationGroups = updatedGroups;
+                              setStations(updated);
+                              setEditingStationIndex(-1);
+                            }}
+                            onReset={() => {
+                              // Reset to effective groups
+                              const resetGroups: Record<string, Group> = {};
+                              station.assignedGroupIds.forEach((gId) => {
+                                const effectiveGroup = getEffectiveGroups().find(g => g.id === gId);
+                                if (effectiveGroup) {
+                                  resetGroups[gId] = { ...effectiveGroup, playerIds: [...effectiveGroup.playerIds] };
+                                }
+                              });
+                              setStationGroupsBeingEdited(resetGroups);
+                              const updated = [...stations];
+                              updated[stationIndex].stationGroups = undefined;
+                              setStations(updated);
+                            }}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
@@ -1269,6 +1642,9 @@ export default function RotationBuilder({
                       Groups: {station.assignedGroupIds.length > 0
                         ? station.assignedGroupIds.map((id) => getGroupName(id)).join(', ')
                         : 'All groups'}
+                      {station.stationGroups && Object.keys(station.stationGroups).length > 0 && (
+                        <span className="ml-1 text-amber-600">(✎ modified)</span>
+                      )}
                     </div>
                   </div>
                 );
