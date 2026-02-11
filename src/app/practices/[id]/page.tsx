@@ -53,6 +53,11 @@ function PracticePageContent({ id }: { id: string }) {
 
   useEffect(() => {
     const fetchPractice = async () => {
+      if (!db) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const docRef = doc(db, 'practices', id);
         const docSnap = await getDoc(docRef);
@@ -101,6 +106,8 @@ function PracticePageContent({ id }: { id: string }) {
   };
 
   const handleSave = async (newStatus?: 'draft' | 'active' | 'completed') => {
+    if (!db) return;
+
     setSaving(true);
     try {
       const docRef = doc(db, 'practices', id);

@@ -28,6 +28,12 @@ export function useFirestoreCollection<T extends { id: string }>(
   const [error, setError] = useState<Error | null>(null);
 
   const fetchData = useCallback(async () => {
+    // If db is not initialized (during build or missing env vars), skip
+    if (!db) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const collectionRef = collection(db, collectionName);
@@ -65,6 +71,7 @@ export function useFirestoreCollection<T extends { id: string }>(
   }, [fetchData]);
 
   const add = async (item: Omit<T, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+    if (!db) throw new Error('Database not initialized');
     const collectionRef = collection(db, collectionName);
     const now = Timestamp.now();
     const docRef = await addDoc(collectionRef, {
@@ -77,6 +84,7 @@ export function useFirestoreCollection<T extends { id: string }>(
   };
 
   const update = async (id: string, updates: Partial<T>): Promise<void> => {
+    if (!db) throw new Error('Database not initialized');
     const docRef = doc(db, collectionName, id);
     await updateDoc(docRef, {
       ...updates,
@@ -86,12 +94,14 @@ export function useFirestoreCollection<T extends { id: string }>(
   };
 
   const remove = async (id: string): Promise<void> => {
+    if (!db) throw new Error('Database not initialized');
     const docRef = doc(db, collectionName, id);
     await deleteDoc(docRef);
     await fetchData();
   };
 
   const getById = async (id: string): Promise<T | null> => {
+    if (!db) return null;
     const docRef = doc(db, collectionName, id);
     const snapshot = await getDoc(docRef);
     if (snapshot.exists()) {

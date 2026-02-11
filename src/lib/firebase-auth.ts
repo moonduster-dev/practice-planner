@@ -1,6 +1,7 @@
 // Firebase Auth initialization - separate file for easy removal
 // Delete this file to remove auth dependency
-import { getAuth } from 'firebase/auth';
+import { getAuth, Auth } from 'firebase/auth';
 import { app } from './firebase';
 
-export const auth = getAuth(app);
+// Only initialize auth if app is available
+export const auth: Auth | null = app ? getAuth(app) : null;

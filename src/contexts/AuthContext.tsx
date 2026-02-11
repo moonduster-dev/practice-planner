@@ -43,8 +43,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If auth is disabled, skip Firebase auth listener
-    if (!AUTH_ENABLED) {
+    // If auth is disabled or auth not initialized, skip Firebase auth listener
+    if (!AUTH_ENABLED || !auth) {
+      setLoading(false);
       return;
     }
 
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAuthError(null);
         } else {
           // Email not allowed - sign them out
-          await firebaseSignOut(auth);
+          if (auth) await firebaseSignOut(auth);
           setUser(null);
           setAuthError(`Access denied. ${firebaseUser.email} is not authorized.`);
         }
@@ -70,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async () => {
-    if (!AUTH_ENABLED) return;
+    if (!AUTH_ENABLED || !auth) return;
 
     setAuthError(null);
     const provider = new GoogleAuthProvider();
@@ -88,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    if (!AUTH_ENABLED) return;
+    if (!AUTH_ENABLED || !auth) return;
 
     try {
       await firebaseSignOut(auth);

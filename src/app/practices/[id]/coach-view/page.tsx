@@ -58,6 +58,11 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
 
   useEffect(() => {
     const fetchPractice = async () => {
+      if (!db) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const docRef = doc(db, 'practices', id);
         const docSnap = await getDoc(docRef);
