@@ -1454,52 +1454,115 @@ export default function RotationBuilder({
                       </div>
 
                       <div className="space-y-2 bg-white rounded-lg p-2">
-                        {station.drills.map((stationDrill, drillIndex) => (
-                          <div key={stationDrill.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                            <span className="text-xs font-medium text-gray-500 w-4">
-                              {drillIndex + 1}.
-                            </span>
-                            <select
-                              value={stationDrill.drillId}
-                              onChange={(e) => handleDrillChange(stationIndex, drillIndex, 'drillId', e.target.value)}
-                              className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                            >
-                              {/* Show selected drill even if it's filtered out */}
-                              {!getFilteredDrills().find(d => d.id === stationDrill.drillId) && drills.find(d => d.id === stationDrill.drillId) && (
-                                <option value={stationDrill.drillId}>
-                                  {getDrillTitle(stationDrill.drillId)} ({drills.find(d => d.id === stationDrill.drillId)?.category}) ★
-                                </option>
+                        {station.drills.map((stationDrill, drillIndex) => {
+                          const selectedDrill = drills.find(d => d.id === stationDrill.drillId);
+                          return (
+                            <div key={stationDrill.id} className="group/drill relative">
+                              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                                <span className="text-xs font-medium text-gray-500 w-4">
+                                  {drillIndex + 1}.
+                                </span>
+                                <select
+                                  value={stationDrill.drillId}
+                                  onChange={(e) => handleDrillChange(stationIndex, drillIndex, 'drillId', e.target.value)}
+                                  className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                >
+                                  {/* Show selected drill even if it's filtered out */}
+                                  {!getFilteredDrills().find(d => d.id === stationDrill.drillId) && drills.find(d => d.id === stationDrill.drillId) && (
+                                    <option value={stationDrill.drillId}>
+                                      {getDrillTitle(stationDrill.drillId)} ({drills.find(d => d.id === stationDrill.drillId)?.category}) ★
+                                    </option>
+                                  )}
+                                  {getFilteredDrills().map((drill) => (
+                                    <option key={drill.id} value={drill.id}>
+                                      {drill.title} ({drill.category})
+                                    </option>
+                                  ))}
+                                </select>
+                                {selectedDrill?.videoUrl && (
+                                  <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                )}
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="60"
+                                  value={stationDrill.duration}
+                                  onChange={(e) =>
+                                    handleDrillChange(stationIndex, drillIndex, 'duration', parseInt(e.target.value) || 1)
+                                  }
+                                  className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                />
+                                <span className="text-xs text-gray-500">min</span>
+                                {station.drills.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveDrillFromStation(stationIndex, drillIndex)}
+                                    className="p-1 text-red-500 hover:bg-red-50 rounded"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Hover Tooltip for selected drill */}
+                              {selectedDrill && (
+                                <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover/drill:block">
+                                  <div className="bg-white rounded-lg border border-gray-200 shadow-lg p-3 text-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                        selectedDrill.category === 'warmup' ? 'bg-orange-100 text-orange-800' :
+                                        selectedDrill.category === 'hitting' ? 'bg-red-100 text-red-800' :
+                                        selectedDrill.category === 'fielding' ? 'bg-green-100 text-green-800' :
+                                        selectedDrill.category === 'pitching' ? 'bg-blue-100 text-blue-800' :
+                                        selectedDrill.category === 'catching' ? 'bg-purple-100 text-purple-800' :
+                                        selectedDrill.category === 'iq' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-pink-100 text-pink-800'
+                                      }`}>
+                                        {selectedDrill.category}
+                                      </span>
+                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                        selectedDrill.skillLevel === 'beginner' ? 'bg-green-100 text-green-800' :
+                                        selectedDrill.skillLevel === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}>
+                                        {selectedDrill.skillLevel}
+                                      </span>
+                                      <span className="text-xs text-gray-500">{selectedDrill.baseDuration} min</span>
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 mb-1">{selectedDrill.title}</h4>
+                                    {selectedDrill.description && (
+                                      <p className="text-gray-600 text-xs mb-2 line-clamp-3 whitespace-pre-wrap">{selectedDrill.description}</p>
+                                    )}
+                                    {selectedDrill.coachNotes && (
+                                      <p className="text-gray-500 text-xs italic mb-2 line-clamp-2">
+                                        <span className="font-medium not-italic">Coach notes:</span> {selectedDrill.coachNotes}
+                                      </p>
+                                    )}
+                                    {selectedDrill.location && (
+                                      <p className="text-gray-500 text-xs">
+                                        <span className="font-medium">Location:</span> {selectedDrill.location.replace(/_/g, ' ')}
+                                      </p>
+                                    )}
+                                    {selectedDrill.videoUrl && (
+                                      <p className="text-blue-600 text-xs mt-2 flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Has video
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
                               )}
-                              {getFilteredDrills().map((drill) => (
-                                <option key={drill.id} value={drill.id}>
-                                  {drill.title} ({drill.category})
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              type="number"
-                              min="1"
-                              max="60"
-                              value={stationDrill.duration}
-                              onChange={(e) =>
-                                handleDrillChange(stationIndex, drillIndex, 'duration', parseInt(e.target.value) || 1)
-                              }
-                              className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                            />
-                            <span className="text-xs text-gray-500">min</span>
-                            {station.drills.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveDrillFromStation(stationIndex, drillIndex)}
-                                className="p-1 text-red-500 hover:bg-red-50 rounded"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                            </div>
+                          );
+                        })}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         Station total: {station.drills.reduce((sum, d) => sum + d.duration, 0)} minutes
