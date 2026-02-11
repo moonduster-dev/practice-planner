@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -350,20 +350,6 @@ export default function RotationBuilder({
     } else {
       station.assignedGroupIds = [...station.assignedGroupIds, groupId];
     }
-    setStations(updated);
-  };
-
-  const handleSelectAllGroups = (stationIndex: number) => {
-    const updated = [...stations];
-    // Use rotation groups if they exist, otherwise practice groups
-    const effectiveGroups = getEffectiveGroups();
-    updated[stationIndex].assignedGroupIds = effectiveGroups.map((g) => g.id);
-    setStations(updated);
-  };
-
-  const handleClearGroups = (stationIndex: number) => {
-    const updated = [...stations];
-    updated[stationIndex].assignedGroupIds = [];
     setStations(updated);
   };
 

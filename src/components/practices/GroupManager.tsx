@@ -15,7 +15,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core';
 import { Player, Group } from '@/types';
-import { Button, Card } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { createGroups, createPartners, getPresentPlayers, balanceGroups, suggestGroupCount } from '@/lib/groupingUtils';
 
 interface GroupManagerProps {
@@ -437,7 +437,7 @@ export default function GroupManager({
                   {existingGroups.map((group) => renderGroupCard(group, false, unassignedForGroups))}
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">Click "Create" to divide players into groups</p>
+                <p className="text-xs text-gray-500">Click &quot;Create&quot; to divide players into groups</p>
               )}
             </div>
 
@@ -465,7 +465,7 @@ export default function GroupManager({
                   {existingPartners.map((partner) => renderGroupCard(partner, true, unassignedForPartners))}
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">Click "Create" to pair up players</p>
+                <p className="text-xs text-gray-500">Click &quot;Create&quot; to pair up players</p>
               )}
             </div>
           </div>

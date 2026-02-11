@@ -23,7 +23,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SessionBlock, Drill, Coach, Equipment, Group, Player } from '@/types';
-import { Button, Card, Badge, Modal, Input } from '@/components/ui';
+import { Button, Badge, Modal } from '@/components/ui';
 import { calculateBlockDuration } from '@/lib/timeEngine';
 import { v4 as uuidv4 } from 'uuid';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
@@ -47,12 +47,11 @@ interface SortableBlockProps {
   coach?: Coach;
   coaches?: Coach[];
   groups?: Group[];
-  practiceGroups?: Record<string, Group>;
   onRemove: () => void;
   onEdit: () => void;
 }
 
-function SortableBlock({ block, drill, coach, coaches, groups, practiceGroups, onRemove, onEdit }: SortableBlockProps) {
+function SortableBlock({ block, drill, coach, coaches, groups, onRemove, onEdit }: SortableBlockProps) {
   const {
     attributes,
     listeners,
@@ -509,14 +508,17 @@ export default function DrillSequencer({
   sessionBlocks,
   drills,
   coaches,
-  equipment,
+  equipment: _equipment,
   groups,
-  attendance,
+  attendance: _attendance,
   onBlocksChange,
   onAddRotation,
   onEditRotation,
   onAddWaterBreak,
 }: DrillSequencerProps) {
+  // Suppress unused variable warnings - these props are kept for API compatibility
+  void _equipment;
+  void _attendance;
   const { data: players } = useFirestoreCollection<Player>('players');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -532,14 +534,6 @@ export default function DrillSequencer({
   const [showPartnerEditor, setShowPartnerEditor] = useState(false);
 
   const groupArray = Object.values(groups);
-
-  // Helper to get player name
-  const getPlayerName = (playerId: string) => {
-    return players.find((p) => p.id === playerId)?.name || 'Unknown';
-  };
-
-  // Check if we're in partners mode (groups with 2-3 players each)
-  const isPartnersMode = groupArray.length > 0 && groupArray.every((g) => g.playerIds.length <= 3);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -672,49 +666,6 @@ export default function DrillSequencer({
     setShowPartnerEditor(false);
   };
 
-  // Partner editing functions
-  const handleMovePlayerToGroup = (fromGroupId: string, toGroupId: string, playerId: string) => {
-    setEditDrillGroups((prev) => {
-      const updated = { ...prev };
-      // Remove from old group
-      if (updated[fromGroupId]) {
-        updated[fromGroupId] = {
-          ...updated[fromGroupId],
-          playerIds: updated[fromGroupId].playerIds.filter((id) => id !== playerId),
-        };
-      }
-      // Add to new group
-      if (updated[toGroupId]) {
-        updated[toGroupId] = {
-          ...updated[toGroupId],
-          playerIds: [...updated[toGroupId].playerIds, playerId],
-        };
-      }
-      return updated;
-    });
-  };
-
-  const handleSwapPlayers = (groupAId: string, playerAId: string, groupBId: string, playerBId: string) => {
-    setEditDrillGroups((prev) => {
-      const updated = { ...prev };
-      // Update group A: remove playerA, add playerB
-      if (updated[groupAId]) {
-        updated[groupAId] = {
-          ...updated[groupAId],
-          playerIds: updated[groupAId].playerIds.map((id) => (id === playerAId ? playerBId : id)),
-        };
-      }
-      // Update group B: remove playerB, add playerA
-      if (updated[groupBId]) {
-        updated[groupBId] = {
-          ...updated[groupBId],
-          playerIds: updated[groupBId].playerIds.map((id) => (id === playerBId ? playerAId : id)),
-        };
-      }
-      return updated;
-    });
-  };
-
   const handleResetDrillGroups = () => {
     // Reset to practice-level groups
     const selectedGroups: Record<string, Group> = {};
@@ -724,20 +675,6 @@ export default function DrillSequencer({
       }
     });
     setEditDrillGroups(selectedGroups);
-  };
-
-  // Rename a drill-level group
-  const handleRenameDrillGroup = (groupId: string, newName: string) => {
-    setEditDrillGroups((prev) => {
-      const updated = { ...prev };
-      if (updated[groupId]) {
-        updated[groupId] = {
-          ...updated[groupId],
-          name: newName,
-        };
-      }
-      return updated;
-    });
   };
 
   const toggleCoachSelection = (coachId: string) => {
@@ -750,14 +687,6 @@ export default function DrillSequencer({
     setEditGroupIds((prev) =>
       prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
     );
-  };
-
-  const selectAllGroups = () => {
-    setEditGroupIds(groupArray.map((g) => g.id));
-  };
-
-  const clearAllGroups = () => {
-    setEditGroupIds([]);
   };
 
   const activeBlock = sessionBlocks.find((b) => b.id === activeId);
@@ -881,7 +810,6 @@ export default function DrillSequencer({
                       coach={coach}
                       coaches={coaches}
                       groups={groupArray}
-                      practiceGroups={groups}
                       onRemove={() => handleRemoveBlock(block.id)}
                       onEdit={() => handleEditBlock(block.id)}
                     />
