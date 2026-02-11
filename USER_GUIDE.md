@@ -350,6 +350,21 @@ Each station can have groups and/or partners assigned:
 
 <!-- Screenshot: Rotation station with group/partner assignment -->
 
+### Editing Groups/Partners per Station
+
+You can customize player assignments for individual stations:
+
+1. Select groups and/or partners for the station
+2. Click **"Edit Groups for this Station"**, **"Edit Partners for this Station"**, or **"Edit Groups & Partners for this Station"** (depending on what you selected)
+3. **Drag and drop** players between groups/partners to customize
+4. Click **"Save Changes"** to save your customizations
+5. Stations with modified groups show a **"✎ Groups modified"** indicator
+6. Click **"Reset"** to restore the original group assignments
+
+This is useful when a specific station needs different player groupings (e.g., putting stronger players together at the hitting station).
+
+<!-- Screenshot: Per-station group editor in rotation builder -->
+
 ### Summary Panel
 
 The bottom of the Rotation Builder shows:
