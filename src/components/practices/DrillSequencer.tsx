@@ -196,18 +196,81 @@ function DrillLibraryItem({ drill, onAdd }: DrillLibraryItemProps) {
     games: 'bg-pink-100 text-pink-800',
   };
 
+  const skillLevelColors: Record<string, string> = {
+    beginner: 'bg-green-100 text-green-800',
+    intermediate: 'bg-yellow-100 text-yellow-800',
+    advanced: 'bg-red-100 text-red-800',
+  };
+
   return (
-    <div className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all">
-      <div className="flex items-center space-x-2">
-        <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[drill.category]}`}>
-          {drill.category}
-        </span>
-        <span className="text-sm font-medium text-gray-900">{drill.title}</span>
-        <span className="text-xs text-gray-500">{drill.baseDuration}m</span>
+    <div className="group relative">
+      <div className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all">
+        <div className="flex items-center space-x-2">
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[drill.category]}`}>
+            {drill.category}
+          </span>
+          <span className="text-sm font-medium text-gray-900">{drill.title}</span>
+          <span className="text-xs text-gray-500">{drill.baseDuration}m</span>
+          {drill.videoUrl && (
+            <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </div>
+        <Button size="sm" variant="ghost" onClick={onAdd}>
+          + Add
+        </Button>
       </div>
-      <Button size="sm" variant="ghost" onClick={onAdd}>
-        + Add
-      </Button>
+
+      {/* Hover Tooltip */}
+      <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-lg p-3 text-sm">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[drill.category]}`}>
+              {drill.category}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${skillLevelColors[drill.skillLevel] || 'bg-gray-100 text-gray-800'}`}>
+              {drill.skillLevel}
+            </span>
+            <span className="text-xs text-gray-500">{drill.baseDuration} min</span>
+          </div>
+
+          {/* Title */}
+          <h4 className="font-semibold text-gray-900 mb-1">{drill.title}</h4>
+
+          {/* Description */}
+          {drill.description && (
+            <p className="text-gray-600 text-xs mb-2 line-clamp-3 whitespace-pre-wrap">{drill.description}</p>
+          )}
+
+          {/* Coach Notes */}
+          {drill.coachNotes && (
+            <p className="text-gray-500 text-xs italic mb-2 line-clamp-2">
+              <span className="font-medium not-italic">Coach notes:</span> {drill.coachNotes}
+            </p>
+          )}
+
+          {/* Location */}
+          {drill.location && (
+            <p className="text-gray-500 text-xs">
+              <span className="font-medium">Location:</span> {drill.location.replace(/_/g, ' ')}
+            </p>
+          )}
+
+          {/* Video indicator */}
+          {drill.videoUrl && (
+            <p className="text-blue-600 text-xs mt-2 flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Has video
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
