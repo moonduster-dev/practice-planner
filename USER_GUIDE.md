@@ -209,8 +209,16 @@ The Groups & Partners section lets you create both simultaneously for different 
 2. You'll see two columns:
    - **Left side**: Drill Library (available drills)
    - **Right side**: Practice Schedule (your planned drills)
-3. **Drag a drill** from the library to the schedule
-4. Or click the **"+"** button on a drill to add it
+3. **Hover over any drill** to see a tooltip with:
+   - Category and skill level badges
+   - Full description
+   - Coach notes
+   - Location
+   - Video indicator (if available)
+4. **Drag a drill** from the library to the schedule
+5. Or click the **"+"** button on a drill to add it
+
+Drills with videos show a small video icon next to the title.
 
 <!-- Screenshot: Drill library and schedule side by side -->
 
@@ -315,12 +323,26 @@ Rotations allow multiple stations to run simultaneously with groups rotating thr
 1. Click **"Add Station"** to create a station
 2. For each station:
    - **Name** - Give it a descriptive name (e.g., "Hitting Station")
-   - **Drill(s)** - Select one or more drills
+   - **Drill(s)** - Select one or more drills (hover to see drill details)
    - **Duration** - Set time per drill
    - **Coach(es)** - Assign coaches
    - **Groups** - Select which groups visit this station
 
+Drills with videos show a small video icon next to the dropdown.
+
 <!-- Screenshot: Station configuration -->
+
+### Matching Station Durations
+
+For rotations to work smoothly, all stations should have the same duration. If durations don't match:
+
+1. An **amber warning** appears showing each station's duration
+2. Click **"Sync All to X min"** to set all stations to the longest duration
+3. The system proportionally adjusts drill times when syncing multi-drill stations
+
+This ensures groups rotate in sync without waiting.
+
+<!-- Screenshot: Duration mismatch warning -->
 
 ### Rotation Modes
 
