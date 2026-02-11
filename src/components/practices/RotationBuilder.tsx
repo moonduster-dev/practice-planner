@@ -486,8 +486,9 @@ export default function RotationBuilder({
     }
   };
 
-  // Check if we're in partners mode (groups with 2-3 players each)
-  const isPartnersMode = groupArray.length > 0 && groupArray.every((g) => g.playerIds.length <= 3);
+  // Check what types of groups/partners are available
+  const hasGroups = groupArray.some((g) => g.type !== 'partner');
+  const hasPartners = groupArray.some((g) => g.type === 'partner');
 
   // Helper to get player name
   const getPlayerName = (playerId: string) => {
@@ -1024,185 +1025,285 @@ export default function RotationBuilder({
           </div>
         )}
 
-        {/* Rotation-Level Partner Editor */}
-        {groupArray.length > 0 && isPartnersMode && (
-          <div className="border border-purple-200 rounded-lg bg-purple-50/50">
-            <button
-              type="button"
-              onClick={() => {
-                initializeRotationGroups();
-                setShowRotationPartnerEditor(!showRotationPartnerEditor);
-              }}
-              className="w-full flex items-center justify-between p-3 text-left"
-            >
-              <div className="flex items-center gap-2">
-                <svg className={`w-4 h-4 text-purple-600 transition-transform ${showRotationPartnerEditor ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="font-medium text-purple-900">Edit Partners for this Rotation</span>
-                {hasModifiedPartners() && (
-                  <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded">
-                    ✎ modified
-                  </span>
-                )}
-              </div>
-              <span className="text-sm text-purple-600">
-                {Object.keys(rotationGroups).length > 0 ? Object.values(rotationGroups).length : groupArray.length} groups
-              </span>
-            </button>
+        {/* Rotation-Level Group/Partner Editor */}
+        {groupArray.length > 0 && (hasGroups || hasPartners) && (() => {
+          // Determine label and colors based on what's available
+          const editorLabel = hasGroups && hasPartners
+            ? 'Edit Groups & Partners for this Rotation'
+            : hasPartners
+            ? 'Edit Partners for this Rotation'
+            : 'Edit Groups for this Rotation';
+          const resetLabel = hasGroups && hasPartners
+            ? 'Reset to Practice Groups & Partners'
+            : hasPartners
+            ? 'Reset to Practice Partners'
+            : 'Reset to Practice Groups';
+          const countLabel = hasGroups && hasPartners
+            ? `${groupArray.filter(g => g.type !== 'partner').length} groups, ${groupArray.filter(g => g.type === 'partner').length} partners`
+            : hasPartners
+            ? `${groupArray.length} partners`
+            : `${groupArray.length} groups`;
+          const borderColor = hasPartners && !hasGroups ? 'border-purple-200' : 'border-blue-200';
+          const bgColor = hasPartners && !hasGroups ? 'bg-purple-50/50' : 'bg-blue-50/50';
+          const iconColor = hasPartners && !hasGroups ? 'text-purple-600' : 'text-blue-600';
+          const textColor = hasPartners && !hasGroups ? 'text-purple-900' : 'text-blue-900';
+          const countColor = hasPartners && !hasGroups ? 'text-purple-600' : 'text-blue-600';
 
-            {showRotationPartnerEditor && (
-              <div className="p-4 border-t border-purple-200">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-purple-700">
-                    Set up partner groups for this entire rotation. Then assign groups to stations below.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleResetRotationGroups}
-                    className="text-xs text-purple-600 hover:text-purple-800"
-                  >
-                    Reset to Practice Partners
-                  </button>
+          return (
+            <div className={`border ${borderColor} rounded-lg ${bgColor}`}>
+              <button
+                type="button"
+                onClick={() => {
+                  initializeRotationGroups();
+                  setShowRotationPartnerEditor(!showRotationPartnerEditor);
+                }}
+                className="w-full flex items-center justify-between p-3 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className={`w-4 h-4 ${iconColor} transition-transform ${showRotationPartnerEditor ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  <span className={`font-medium ${textColor}`}>{editorLabel}</span>
+                  {hasModifiedPartners() && (
+                    <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded">
+                      ✎ modified
+                    </span>
+                  )}
                 </div>
+                <span className={`text-sm ${countColor}`}>{countLabel}</span>
+              </button>
 
-                {/* Player count indicator */}
-                {(() => {
-                  const rotationCount = getRotationPlayerCount();
-                  const totalCount = getTotalPlayerCount();
-                  const unassigned = getUnassignedPlayers();
-                  const isComplete = rotationCount === totalCount;
-                  return (
-                    <div className={`text-xs mb-3 px-2 py-1 rounded ${
-                      isComplete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {isComplete ? (
-                        <span>✓ All {totalCount} players assigned</span>
-                      ) : (
-                        <span>⚠ {rotationCount} of {totalCount} players assigned ({unassigned.length} unassigned)</span>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                <p className="text-xs text-purple-600 mb-2">
-                  Drag players between groups to reassign partners.
-                </p>
-
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDragEnd={handleDragEnd}
-                >
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {Object.values(rotationGroups).map((group) => {
-                      const practiceGroup = groups[group.id];
-                      const unassignedPlayers = getUnassignedPlayers();
-                      const isGroupOver = overGroupId === group.id;
-
-                      return (
-                        <DroppableGroup key={group.id} group={group} isOver={isGroupOver}>
-                          <div className="flex items-center gap-1 mb-2">
-                            <input
-                              type="text"
-                              value={group.name}
-                              onChange={(e) => handleRenameRotationGroup(group.id, e.target.value)}
-                              className="flex-1 text-sm font-medium text-purple-800 bg-transparent border-b border-transparent hover:border-purple-300 focus:border-purple-500 focus:outline-none px-0 py-0.5 min-w-0"
-                              title="Click to rename group"
-                            />
-                            <span className="text-xs text-purple-600">({group.playerIds.length})</span>
-                          </div>
-                          <div className="space-y-1 min-h-[40px]">
-                            {group.playerIds.map((playerId) => {
-                              const isFromOtherGroup = practiceGroup && !practiceGroup.playerIds.includes(playerId);
-                              return (
-                                <DraggablePlayer
-                                  key={playerId}
-                                  playerId={playerId}
-                                  playerName={getPlayerName(playerId)}
-                                  groupId={group.id}
-                                  isFromOtherGroup={isFromOtherGroup}
-                                  onRemove={() => handleRemovePlayerFromGroup(group.id, playerId)}
-                                />
-                              );
-                            })}
-                            {group.playerIds.length === 0 && (
-                              <p className="text-xs text-gray-400 italic px-2 py-2">Drop player here</p>
-                            )}
-                          </div>
-
-                          {/* Add unassigned player */}
-                          {unassignedPlayers.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-purple-100">
-                              <select
-                                value=""
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    handleAddPlayerToGroup(group.id, e.target.value);
-                                  }
-                                }}
-                                className="w-full text-xs border border-purple-300 rounded px-2 py-1 bg-white text-purple-700"
-                              >
-                                <option value="">+ Add player...</option>
-                                {unassignedPlayers.map(({ playerId, originalGroupName }) => (
-                                  <option key={playerId} value={playerId}>
-                                    {getPlayerName(playerId)} ({originalGroupName})
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
-                        </DroppableGroup>
-                      );
-                    })}
+              {showRotationPartnerEditor && (
+                <div className={`p-4 border-t ${borderColor}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className={`text-sm ${hasPartners && !hasGroups ? 'text-purple-700' : 'text-blue-700'}`}>
+                      Customize player assignments for this rotation. Then assign to stations below.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResetRotationGroups}
+                      className={`text-xs ${hasPartners && !hasGroups ? 'text-purple-600 hover:text-purple-800' : 'text-blue-600 hover:text-blue-800'}`}
+                    >
+                      {resetLabel}
+                    </button>
                   </div>
 
-                  {/* Drag overlay - shows the player being dragged */}
-                  <DragOverlay>
-                    {activePlayerId ? (
-                      <div className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs bg-purple-100 border-2 border-purple-400 shadow-lg cursor-grabbing">
-                        <svg className="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                        </svg>
-                        <span className="text-purple-800 font-medium">
-                          {getPlayerName(activePlayerId)}
-                        </span>
+                  {/* Player count indicator */}
+                  {(() => {
+                    const rotationCount = getRotationPlayerCount();
+                    const totalCount = getTotalPlayerCount();
+                    const unassigned = getUnassignedPlayers();
+                    const isComplete = rotationCount === totalCount;
+                    return (
+                      <div className={`text-xs mb-3 px-2 py-1 rounded ${
+                        isComplete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {isComplete ? (
+                          <span>✓ All {totalCount} players assigned</span>
+                        ) : (
+                          <span>⚠ {rotationCount} of {totalCount} players assigned ({unassigned.length} unassigned)</span>
+                        )}
                       </div>
-                    ) : null}
-                  </DragOverlay>
-                </DndContext>
+                    );
+                  })()}
 
-                {/* Unassigned players warning */}
-                {(() => {
-                  const unassigned = getUnassignedPlayers();
-                  if (unassigned.length === 0) return null;
-                  return (
-                    <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                      <div className="text-xs font-medium text-amber-800 mb-1">
-                        Unassigned Players ({unassigned.length}):
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                  >
+                    {/* Groups Section */}
+                    {hasGroups && (
+                      <div className="mb-4">
+                        <h5 className="text-xs font-medium text-blue-900 mb-2">Groups</h5>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                          {Object.values(rotationGroups).filter(g => g.type !== 'partner').map((group) => {
+                            const practiceGroup = groups[group.id];
+                            const unassignedPlayers = getUnassignedPlayers();
+                            const isGroupOver = overGroupId === group.id;
+
+                            return (
+                              <div
+                                key={group.id}
+                                className={`bg-white rounded-lg border-2 p-3 transition-colors ${
+                                  isGroupOver ? 'border-blue-500 bg-blue-50' : 'border-blue-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1 mb-2">
+                                  <input
+                                    type="text"
+                                    value={group.name}
+                                    onChange={(e) => handleRenameRotationGroup(group.id, e.target.value)}
+                                    className="flex-1 text-sm font-medium text-blue-800 bg-transparent border-b border-transparent hover:border-blue-300 focus:border-blue-500 focus:outline-none px-0 py-0.5 min-w-0"
+                                    title="Click to rename group"
+                                  />
+                                  <span className="text-xs text-blue-600">({group.playerIds.length})</span>
+                                </div>
+                                <div className="space-y-1 min-h-[40px]">
+                                  {group.playerIds.map((playerId) => {
+                                    const isFromOtherGroup = practiceGroup && !practiceGroup.playerIds.includes(playerId);
+                                    return (
+                                      <DraggablePlayer
+                                        key={playerId}
+                                        playerId={playerId}
+                                        playerName={getPlayerName(playerId)}
+                                        groupId={group.id}
+                                        isFromOtherGroup={isFromOtherGroup}
+                                        onRemove={() => handleRemovePlayerFromGroup(group.id, playerId)}
+                                      />
+                                    );
+                                  })}
+                                  {group.playerIds.length === 0 && (
+                                    <p className="text-xs text-gray-400 italic px-2 py-2">Drop player here</p>
+                                  )}
+                                </div>
+
+                                {unassignedPlayers.length > 0 && (
+                                  <div className="mt-2 pt-2 border-t border-blue-100">
+                                    <select
+                                      value=""
+                                      onChange={(e) => {
+                                        if (e.target.value) {
+                                          handleAddPlayerToGroup(group.id, e.target.value);
+                                        }
+                                      }}
+                                      className="w-full text-xs border border-blue-300 rounded px-2 py-1 bg-white text-blue-700"
+                                    >
+                                      <option value="">+ Add player...</option>
+                                      {unassignedPlayers.map(({ playerId, originalGroupName }) => (
+                                        <option key={playerId} value={playerId}>
+                                          {getPlayerName(playerId)} ({originalGroupName})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {unassigned.map(({ playerId, originalGroupName }) => (
-                          <span key={playerId} className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
-                            {getPlayerName(playerId)} <span className="text-amber-500">({originalGroupName})</span>
+                    )}
+
+                    {/* Partners Section */}
+                    {hasPartners && (
+                      <div>
+                        <h5 className="text-xs font-medium text-purple-900 mb-2">Partners</h5>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                          {Object.values(rotationGroups).filter(g => g.type === 'partner').map((group) => {
+                            const practiceGroup = groups[group.id];
+                            const unassignedPlayers = getUnassignedPlayers();
+                            const isGroupOver = overGroupId === group.id;
+
+                            return (
+                              <DroppableGroup key={group.id} group={group} isOver={isGroupOver}>
+                                <div className="flex items-center gap-1 mb-2">
+                                  <input
+                                    type="text"
+                                    value={group.name}
+                                    onChange={(e) => handleRenameRotationGroup(group.id, e.target.value)}
+                                    className="flex-1 text-sm font-medium text-purple-800 bg-transparent border-b border-transparent hover:border-purple-300 focus:border-purple-500 focus:outline-none px-0 py-0.5 min-w-0"
+                                    title="Click to rename partner pair"
+                                  />
+                                  <span className="text-xs text-purple-600">({group.playerIds.length})</span>
+                                </div>
+                                <div className="space-y-1 min-h-[40px]">
+                                  {group.playerIds.map((playerId) => {
+                                    const isFromOtherGroup = practiceGroup && !practiceGroup.playerIds.includes(playerId);
+                                    return (
+                                      <DraggablePlayer
+                                        key={playerId}
+                                        playerId={playerId}
+                                        playerName={getPlayerName(playerId)}
+                                        groupId={group.id}
+                                        isFromOtherGroup={isFromOtherGroup}
+                                        onRemove={() => handleRemovePlayerFromGroup(group.id, playerId)}
+                                      />
+                                    );
+                                  })}
+                                  {group.playerIds.length === 0 && (
+                                    <p className="text-xs text-gray-400 italic px-2 py-2">Drop player here</p>
+                                  )}
+                                </div>
+
+                                {unassignedPlayers.length > 0 && (
+                                  <div className="mt-2 pt-2 border-t border-purple-100">
+                                    <select
+                                      value=""
+                                      onChange={(e) => {
+                                        if (e.target.value) {
+                                          handleAddPlayerToGroup(group.id, e.target.value);
+                                        }
+                                      }}
+                                      className="w-full text-xs border border-purple-300 rounded px-2 py-1 bg-white text-purple-700"
+                                    >
+                                      <option value="">+ Add player...</option>
+                                      {unassignedPlayers.map(({ playerId, originalGroupName }) => (
+                                        <option key={playerId} value={playerId}>
+                                          {getPlayerName(playerId)} ({originalGroupName})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                              </DroppableGroup>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Drag overlay */}
+                    <DragOverlay>
+                      {activePlayerId ? (
+                        <div className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs bg-blue-100 border-2 border-blue-400 shadow-lg cursor-grabbing">
+                          <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                          </svg>
+                          <span className="text-blue-800 font-medium">
+                            {getPlayerName(activePlayerId)}
                           </span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
+                        </div>
+                      ) : null}
+                    </DragOverlay>
+                  </DndContext>
 
-                {hasModifiedPartners() && (
-                  <p className="mt-3 text-xs text-purple-700 bg-purple-100 rounded px-2 py-1">
-                    ✓ Partners modified for this rotation
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                  {/* Unassigned players warning */}
+                  {(() => {
+                    const unassigned = getUnassignedPlayers();
+                    if (unassigned.length === 0) return null;
+                    return (
+                      <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="text-xs font-medium text-amber-800 mb-1">
+                          Unassigned Players ({unassigned.length}):
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {unassigned.map(({ playerId, originalGroupName }) => (
+                            <span key={playerId} className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                              {getPlayerName(playerId)} <span className="text-amber-500">({originalGroupName})</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {hasModifiedPartners() && (
+                    <p className={`mt-3 text-xs rounded px-2 py-1 ${
+                      hasPartners && !hasGroups
+                        ? 'text-purple-700 bg-purple-100'
+                        : 'text-blue-700 bg-blue-100'
+                    }`}>
+                      ✓ {hasGroups && hasPartners ? 'Groups/Partners' : hasPartners ? 'Partners' : 'Groups'} modified for this rotation
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Quick Actions */}
         {groupArray.length > 0 && stations.length > 0 && (
