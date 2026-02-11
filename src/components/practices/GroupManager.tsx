@@ -132,7 +132,7 @@ export default function GroupManager({
   const existingGroups = groupArray.filter(g => g.type !== 'partner');
   const existingPartners = groupArray.filter(g => g.type === 'partner');
 
-  const [numberOfGroups, setNumberOfGroups] = useState(existingGroups.length || suggestedCount || 2);
+  const [numberOfGroups, setNumberOfGroups] = useState(existingGroups.length || 2);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
