@@ -195,8 +195,15 @@ The Groups & Partners section lets you create both simultaneously for different 
 4. **Drag and drop** players between groups to customize
 
 **Creating Partners** (purple section):
-1. Click **"Create"** to pair players (pairs of 2, with one trio if odd number)
-2. **Drag and drop** players between partner pairs to customize
+1. Set the number of partner groups using the **"#"** input (defaults to players ÷ 2 for pairs)
+2. Click **"Create"** to auto-assign present players into partner groups
+3. The hint shows **"~X per group"** so you know how many players will be in each group
+4. **Drag and drop** players between partner groups to customize
+
+**Example with 9 players:**
+- Set # to 3 → Creates 3 groups of 3 (trios)
+- Set # to 4 → Creates 4 groups (~2-3 players each)
+- Set # to 5 → Creates 5 groups (~2 players each)
 
 **You can have both groups AND partners active at the same time** - some drills can use groups while others use partners.
 
