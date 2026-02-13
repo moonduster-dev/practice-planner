@@ -19,6 +19,11 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user, authEnabled, signIn, signOut } = useAuth();
 
+  // Hide navbar on coach-view pages (read-only shareable view)
+  if (pathname.includes('/coach-view')) {
+    return null;
+  }
+
   return (
     <nav className="bg-navy-900 border-b border-navy-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
