@@ -163,9 +163,12 @@ Navigate to **Practices** and click **"New Practice"**.
 
 ### Step 1: Basic Information
 
-1. Select the **Date** for the practice
-2. Set the **Total Duration** in minutes (e.g., 90 or 120)
-3. Click **"Create Practice"**
+1. Enter a **Practice Name** (optional) - e.g., "Hitting Focus", "Game Prep", "Fielding Day"
+2. Select the **Date** for the practice
+3. Set the **Total Duration** in minutes (e.g., 90 or 120)
+4. Click **"Create Practice"**
+
+The practice name will be displayed in the header and on the shareable coach view.
 
 <!-- Screenshot: New practice form -->
 
@@ -416,9 +419,10 @@ From the practice editor:
 ### What Coaches See
 
 The Coach View displays:
-- Practice date and total duration
-- Number of players present
-- Groups/Partners with player names listed
+- **Practice name** (if set) and date
+- Total duration and number of players present
+- **Groups** (blue section) - displayed first with player names
+- **Partners** (purple section) - displayed after groups with player names
 - Complete schedule with:
   - Start times
   - Drill names and durations
