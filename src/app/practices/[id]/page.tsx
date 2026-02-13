@@ -108,6 +108,12 @@ function PracticePageContent({ id }: { id: string }) {
     }));
   };
 
+  // Parse date string as local time to avoid timezone issues
+  const parseDateAsLocal = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+  };
+
   const handleSave = async (newStatus?: 'draft' | 'active' | 'completed') => {
     if (!db) return;
 
@@ -116,7 +122,7 @@ function PracticePageContent({ id }: { id: string }) {
       const docRef = doc(db, 'practices', id);
       await updateDoc(docRef, {
         name,
-        date: Timestamp.fromDate(new Date(date)),
+        date: Timestamp.fromDate(parseDateAsLocal(date)),
         totalMinutes,
         attendance,
         groups,
@@ -198,7 +204,10 @@ function PracticePageContent({ id }: { id: string }) {
   }
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    // Parse date string as local time to avoid timezone issues
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day); // month is 0-indexed
+    return localDate.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

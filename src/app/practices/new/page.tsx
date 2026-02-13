@@ -46,11 +46,17 @@ function NewPracticePageContent() {
     }));
   };
 
+  // Parse date string as local time to avoid timezone issues
+  const parseDateAsLocal = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+  };
+
   const handleSave = async (status: 'draft' | 'active') => {
     setSaving(true);
     try {
       const practiceData = {
-        date: new Date(date),
+        date: parseDateAsLocal(date),
         totalMinutes,
         attendance,
         groups,
