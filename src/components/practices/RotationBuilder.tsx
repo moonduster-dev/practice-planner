@@ -503,19 +503,25 @@ export default function RotationBuilder({
       setSimultaneousStations(editingBlock.simultaneousStations || false);
 
       if (editingBlock.rotationDrills && editingBlock.rotationDrills.length > 0) {
-        // Load rotation-level groups from the first station that has them
-        // (they should be the same across all stations in a rotation)
-        const firstWithGroups = editingBlock.rotationDrills.find(rd => rd.stationGroups);
-        if (firstWithGroups?.stationGroups) {
-          setRotationGroups(firstWithGroups.stationGroups);
-        } else {
-          // Initialize from practice groups
-          const initialGroups: Record<string, Group> = {};
-          Object.values(groups).forEach((g) => {
-            initialGroups[g.id] = { ...g, playerIds: [...g.playerIds] };
-          });
-          setRotationGroups(initialGroups);
-        }
+        // Load rotation-level groups by merging ALL station groups
+        // Start with practice groups as base, then override with any saved station groups
+        const mergedGroups: Record<string, Group> = {};
+
+        // First, add all practice groups as base
+        Object.values(groups).forEach((g) => {
+          mergedGroups[g.id] = { ...g, playerIds: [...g.playerIds] };
+        });
+
+        // Then, merge in any stationGroups from all stations (they may have modifications)
+        editingBlock.rotationDrills.forEach((rd) => {
+          if (rd.stationGroups) {
+            Object.entries(rd.stationGroups).forEach(([gId, group]) => {
+              mergedGroups[gId] = { ...group, playerIds: [...group.playerIds] };
+            });
+          }
+        });
+
+        setRotationGroups(mergedGroups);
 
         const loadedStations: Station[] = editingBlock.rotationDrills.map((rd, index) => {
           // Build drills array from drillIds or fall back to single drillId
