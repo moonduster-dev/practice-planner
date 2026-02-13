@@ -519,7 +519,7 @@ Mark practices as complete when they're done.
 
 1. Navigate to **Practices**
 2. Find the practice to finalize
-3. Click the **"Finalize"** button
+3. Click the **checkmark** button (or **"Mark Complete"** when editing)
 4. The status changes from active to completed
 
 ### Practice Statuses
@@ -531,6 +531,26 @@ Mark practices as complete when they're done.
 Completed practices are included in the Metrics Dashboard analytics.
 
 <!-- Screenshot: Finalize button on practices list -->
+
+### Reactivating a Completed Practice
+
+Need to make last-minute changes to a completed practice? You can reactivate it for editing:
+
+**From the Practices List:**
+1. Find the completed practice
+2. Click the **pencil/edit** button (amber colored)
+3. Confirm the reactivation
+4. The status changes back to "active"
+
+**From the Practice Editor:**
+1. Open the completed practice
+2. Click **"Reactivate for Editing"** in the header
+3. Confirm the reactivation
+4. All editing controls become available again
+
+Once you've made your changes, click **"Mark Complete"** to finalize the practice again.
+
+<!-- Screenshot: Reactivate button -->
 
 ---
 

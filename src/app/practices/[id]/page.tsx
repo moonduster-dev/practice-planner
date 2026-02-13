@@ -249,7 +249,23 @@ function PracticePageContent({ id }: { id: string }) {
           <Button variant="secondary" onClick={() => router.push('/practices')} disabled={saving}>
             Back
           </Button>
-          {status !== 'completed' && (
+          {status === 'completed' ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (confirm('Reactivate this practice for editing?')) {
+                  handleSave('active');
+                }
+              }}
+              disabled={saving}
+              className="text-amber-600 hover:bg-amber-50"
+            >
+              <svg className="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Reactivate for Editing
+            </Button>
+          ) : (
             <>
               <Button variant="secondary" onClick={() => handleSave()} disabled={saving}>
                 Save
