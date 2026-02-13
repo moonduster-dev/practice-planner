@@ -421,16 +421,15 @@ From the practice editor:
 The Coach View displays:
 - **Practice name** (if set) and date
 - Total duration and number of players present
-- **Groups** (blue section) - displayed first with player names
-- **Partners** (purple section) - displayed after groups with player names
-- Complete schedule with:
+- Complete schedule with each drill showing:
   - Start times
   - Drill names and durations
   - Coach assignments
+  - **Groups for this drill** (blue box) - group names with all player names listed
+  - **Partners for this drill** (purple box) - partner names with all player names listed
+  - ✎ indicator on groups/partners that have been modified from the default
   - Drill descriptions and coach notes
   - Video links (expandable)
-  - **Modified groups** (blue highlight) - when groups are customized for a specific drill
-  - **Modified partners** (purple highlight) - when partners are customized for a specific drill
 
 <!-- Screenshot: Coach View page -->
 

@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import Image from 'next/image';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Practice, Player, Drill, Equipment, Coach, SessionBlock, Group } from '@/types';
+import { Practice, Player, Drill, Coach, Group } from '@/types';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { calculateBlockDuration } from '@/lib/timeEngine';
 
@@ -54,7 +54,6 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
   const { data: players } = useFirestoreCollection<Player>('players');
   const { data: drills } = useFirestoreCollection<Drill>('drills');
   const { data: coaches } = useFirestoreCollection<Coach>('coaches');
-  const { data: equipment } = useFirestoreCollection<Equipment>('equipment');
 
   useEffect(() => {
     const fetchPractice = async () => {
@@ -103,49 +102,15 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
     );
   }
 
-  const groupArray = Object.values(practice.groups || {});
   const presentPlayers = players.filter((p) => practice.attendance[p.id]);
 
   // Calculate running time
   let runningTime = 0;
 
-  const getGroupNames = (groupIds?: string[], drillGroups?: Record<string, Group>) => {
-    if (!groupIds || groupIds.length === 0) return 'All';
-    return groupIds
-      .map((gid) => {
-        // Use drill-specific group name if available
-        if (drillGroups && drillGroups[gid]) {
-          return drillGroups[gid].name;
-        }
-        return practice.groups[gid]?.name || 'Unknown';
-      })
-      .join(', ');
-  };
-
-  const getPlayersInDrillGroups = (block: SessionBlock) => {
-    // Returns player names for drill-specific groups, showing modified partnerships
-    if (!block.drillGroups || Object.keys(block.drillGroups).length === 0) return null;
-    if (!block.groupIds || block.groupIds.length === 0) return null;
-
-    return block.groupIds.map((gid) => {
-      const drillGroup = block.drillGroups?.[gid];
-      if (!drillGroup) return null;
-      const playerNames = drillGroup.playerIds
-        .map((pid) => players.find((p) => p.id === pid)?.name || 'Unknown')
-        .join(', ');
-      return { groupName: drillGroup.name, players: playerNames };
-    }).filter(Boolean);
-  };
-
   const getCoachNames = (block: SessionBlock) => {
     const coachIds = block.coachIds || (block.coachId ? [block.coachId] : []);
     if (coachIds.length === 0) return null;
     return coachIds.map((cid) => coaches.find((c) => c.id === cid)?.name || 'Unknown').join(', ');
-  };
-
-  const getPlayerNamesInGroup = (group: Group) => {
-    return group.playerIds
-      .map((pid) => players.find((p) => p.id === pid)?.name || 'Unknown');
   };
 
   return (
@@ -189,78 +154,11 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6">
-        {/* Groups/Partners Overview */}
-        {groupArray.length > 0 && (() => {
-          const groups = groupArray.filter(g => g.type !== 'partner');
-          const partners = groupArray.filter(g => g.type === 'partner');
-
-          return (
-            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-              {/* Groups Section */}
-              {groups.length > 0 && (
-                <div className={partners.length > 0 ? 'mb-4' : ''}>
-                  <h2 className="font-semibold text-navy-900 mb-3 flex items-center gap-2">
-                    <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-                    Groups
-                  </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {groups.map((group) => (
-                      <div
-                        key={group.id}
-                        className="bg-blue-50 border border-blue-200 rounded-lg p-3"
-                      >
-                        <div className="font-medium text-blue-900 text-sm mb-2">
-                          {group.name}
-                        </div>
-                        <ul className="text-xs text-blue-700 space-y-0.5">
-                          {getPlayerNamesInGroup(group).map((name, idx) => (
-                            <li key={idx}>• {name}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Partners Section */}
-              {partners.length > 0 && (
-                <div>
-                  <h2 className="font-semibold text-navy-900 mb-3 flex items-center gap-2">
-                    <span className="w-3 h-3 bg-purple-500 rounded-full"></span>
-                    Partners
-                  </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {partners.map((group) => (
-                      <div
-                        key={group.id}
-                        className="bg-purple-50 border border-purple-200 rounded-lg p-3"
-                      >
-                        <div className="font-medium text-purple-900 text-sm mb-2">
-                          {group.name}
-                          {group.playerIds.length === 3 && (
-                            <span className="ml-1 text-xs text-purple-600">(trio)</span>
-                          )}
-                        </div>
-                        <ul className="text-xs text-purple-700 space-y-0.5">
-                          {getPlayerNamesInGroup(group).map((name, idx) => (
-                            <li key={idx}>• {name}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
         {/* Schedule */}
         <div className="space-y-4">
           <h2 className="font-semibold text-navy-900">Schedule</h2>
 
-          {practice.sessionBlocks.map((block, index) => {
+          {practice.sessionBlocks.map((block) => {
             const duration = calculateBlockDuration(block);
             const startTime = runningTime;
             runningTime += duration;
@@ -342,36 +240,36 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
                         </div>
                       )}
 
-                      {block.groupIds && block.groupIds.length > 0 && block.groupIds.length < groupArray.length && (
-                        <div className="text-sm text-gray-600">
-                          <span className="font-medium">Groups:</span> {getGroupNames(block.groupIds, block.drillGroups)}
-                        </div>
-                      )}
+                      {/* Show groups/partners for this drill with player names */}
+                      {block.groupIds && block.groupIds.length > 0 && (() => {
+                        // Get the actual group data - use drillGroups if modified, otherwise practice.groups
+                        const drillGroupsData = block.groupIds.map((gid) => {
+                          const isModified = block.drillGroups && block.drillGroups[gid];
+                          const groupData = isModified ? block.drillGroups![gid] : practice.groups[gid];
+                          return groupData ? { ...groupData, isModified: !!isModified } : null;
+                        }).filter((g): g is Group & { isModified: boolean } => !!g);
 
-                      {/* Show drill-specific group/partner assignments if modified */}
-                      {block.drillGroups && Object.keys(block.drillGroups).length > 0 && (() => {
-                        const modifiedGroups = (block.groupIds || [])
-                          .map((gid) => block.drillGroups?.[gid])
-                          .filter((g): g is Group => !!g && g.type !== 'partner');
-                        const modifiedPartners = (block.groupIds || [])
-                          .map((gid) => block.drillGroups?.[gid])
-                          .filter((g): g is Group => !!g && g.type === 'partner');
+                        const drillGroups = drillGroupsData.filter(g => g.type !== 'partner');
+                        const drillPartners = drillGroupsData.filter(g => g.type === 'partner');
 
                         return (
                           <div className="space-y-2 mt-2">
-                            {/* Modified Groups */}
-                            {modifiedGroups.length > 0 && (
+                            {/* Groups for this drill */}
+                            {drillGroups.length > 0 && (
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                 <div className="text-xs text-blue-700 font-medium mb-2 flex items-center gap-1">
                                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                  ✎ Groups modified for this drill:
+                                  Groups:
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                  {modifiedGroups.map((drillGroup) => (
-                                    <div key={drillGroup.id} className="bg-white rounded px-2 py-1.5 text-xs border border-blue-100">
-                                      <div className="font-medium text-blue-800 mb-1">{drillGroup.name}</div>
+                                  {drillGroups.map((group) => (
+                                    <div key={group.id} className="bg-white rounded px-2 py-1.5 text-xs border border-blue-100">
+                                      <div className="font-medium text-blue-800 mb-1">
+                                        {group.name}
+                                        {group.isModified && <span className="ml-1 text-amber-600">✎</span>}
+                                      </div>
                                       <ul className="text-gray-600 space-y-0.5">
-                                        {drillGroup.playerIds.map((pid) => (
+                                        {group.playerIds.map((pid) => (
                                           <li key={pid}>• {players.find((p) => p.id === pid)?.name || 'Unknown'}</li>
                                         ))}
                                       </ul>
@@ -381,19 +279,22 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
                               </div>
                             )}
 
-                            {/* Modified Partners */}
-                            {modifiedPartners.length > 0 && (
+                            {/* Partners for this drill */}
+                            {drillPartners.length > 0 && (
                               <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                                 <div className="text-xs text-purple-700 font-medium mb-2 flex items-center gap-1">
                                   <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                                  ✎ Partners modified for this drill:
+                                  Partners:
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                  {modifiedPartners.map((drillGroup) => (
-                                    <div key={drillGroup.id} className="bg-white rounded px-2 py-1.5 text-xs border border-purple-100">
-                                      <div className="font-medium text-purple-800 mb-1">{drillGroup.name}</div>
+                                  {drillPartners.map((group) => (
+                                    <div key={group.id} className="bg-white rounded px-2 py-1.5 text-xs border border-purple-100">
+                                      <div className="font-medium text-purple-800 mb-1">
+                                        {group.name}
+                                        {group.isModified && <span className="ml-1 text-amber-600">✎</span>}
+                                      </div>
                                       <ul className="text-gray-600 space-y-0.5">
-                                        {drillGroup.playerIds.map((pid) => (
+                                        {group.playerIds.map((pid) => (
                                           <li key={pid}>• {players.find((p) => p.id === pid)?.name || 'Unknown'}</li>
                                         ))}
                                       </ul>
@@ -447,10 +348,18 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
                       {block.rotationDrills.map((rd, rdIndex) => {
                         const stationDrill = drills.find((d) => d.id === rd.drillId);
                         const stationCoaches = rd.coachIds?.map((cid) => coaches.find((c) => c.id === cid)?.name).filter(Boolean).join(', ');
-                        const stationGroups = rd.groupIds?.map((gid) => practice.groups[gid]?.name).filter(Boolean).join(', ');
                         const stationEmbedInfo = stationDrill?.videoUrl ? getEmbedInfo(stationDrill.videoUrl) : null;
                         const isStationVideoExpanded = expandedVideo === `${block.id}-${rdIndex}`;
-                        const hasStationModifiedPartners = rd.stationGroups && Object.keys(rd.stationGroups).length > 0;
+
+                        // Get the actual group data for this station - use stationGroups if modified, otherwise practice.groups
+                        const stationGroupsData = (rd.groupIds || []).map((gid) => {
+                          const isModified = rd.stationGroups && rd.stationGroups[gid];
+                          const groupData = isModified ? rd.stationGroups![gid] : practice.groups[gid];
+                          return groupData ? { ...groupData, isModified: !!isModified } : null;
+                        }).filter((g): g is Group & { isModified: boolean } => !!g);
+
+                        const stationGroups = stationGroupsData.filter(g => g.type !== 'partner');
+                        const stationPartners = stationGroupsData.filter(g => g.type === 'partner');
 
                         return (
                           <div
@@ -470,74 +379,66 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
                                     Coach: {stationCoaches}
                                   </div>
                                 )}
-                                {stationGroups && (
-                                  <div className="text-xs text-purple-600">
-                                    Groups: {stationGroups}
-                                  </div>
-                                )}
                               </div>
                               <div className="text-sm font-medium text-purple-700">
                                 {rd.duration} min
                               </div>
                             </div>
 
-                            {/* Show station-specific group/partner assignments if modified */}
-                            {hasStationModifiedPartners && (() => {
-                              const modifiedGroups = (rd.groupIds || [])
-                                .map((gid) => rd.stationGroups?.[gid])
-                                .filter((g): g is Group => !!g && g.type !== 'partner');
-                              const modifiedPartners = (rd.groupIds || [])
-                                .map((gid) => rd.stationGroups?.[gid])
-                                .filter((g): g is Group => !!g && g.type === 'partner');
-
-                              return (
-                                <div className="space-y-2 mt-2">
-                                  {/* Modified Groups */}
-                                  {modifiedGroups.length > 0 && (
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                                      <div className="text-xs text-blue-700 font-medium mb-1 flex items-center gap-1">
-                                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                        ✎ Groups modified:
-                                      </div>
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                        {modifiedGroups.map((stationGroup) => (
-                                          <div key={stationGroup.id} className="bg-white rounded px-2 py-1 text-xs border border-blue-100">
-                                            <div className="font-medium text-blue-800 mb-0.5">{stationGroup.name}</div>
-                                            <ul className="text-gray-600 space-y-0.5">
-                                              {stationGroup.playerIds.map((pid) => (
-                                                <li key={pid}>• {players.find((p) => p.id === pid)?.name || 'Unknown'}</li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        ))}
-                                      </div>
+                            {/* Show groups/partners for this station with player names */}
+                            {stationGroupsData.length > 0 && (
+                              <div className="space-y-2 mt-2">
+                                {/* Groups for this station */}
+                                {stationGroups.length > 0 && (
+                                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                                    <div className="text-xs text-blue-700 font-medium mb-1 flex items-center gap-1">
+                                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                      Groups:
                                     </div>
-                                  )}
-
-                                  {/* Modified Partners */}
-                                  {modifiedPartners.length > 0 && (
-                                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-2">
-                                      <div className="text-xs text-purple-700 font-medium mb-1 flex items-center gap-1">
-                                        <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                                        ✎ Partners modified:
-                                      </div>
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                        {modifiedPartners.map((stationGroup) => (
-                                          <div key={stationGroup.id} className="bg-white rounded px-2 py-1 text-xs border border-purple-100">
-                                            <div className="font-medium text-purple-800 mb-0.5">{stationGroup.name}</div>
-                                            <ul className="text-gray-600 space-y-0.5">
-                                              {stationGroup.playerIds.map((pid) => (
-                                                <li key={pid}>• {players.find((p) => p.id === pid)?.name || 'Unknown'}</li>
-                                              ))}
-                                            </ul>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                      {stationGroups.map((group) => (
+                                        <div key={group.id} className="bg-white rounded px-2 py-1 text-xs border border-blue-100">
+                                          <div className="font-medium text-blue-800 mb-0.5">
+                                            {group.name}
+                                            {group.isModified && <span className="ml-1 text-amber-600">✎</span>}
                                           </div>
-                                        ))}
-                                      </div>
+                                          <ul className="text-gray-600 space-y-0.5">
+                                            {group.playerIds.map((pid) => (
+                                              <li key={pid}>• {players.find((p) => p.id === pid)?.name || 'Unknown'}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      ))}
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
+                                  </div>
+                                )}
+
+                                {/* Partners for this station */}
+                                {stationPartners.length > 0 && (
+                                  <div className="bg-purple-100 border border-purple-300 rounded-lg p-2">
+                                    <div className="text-xs text-purple-700 font-medium mb-1 flex items-center gap-1">
+                                      <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+                                      Partners:
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                      {stationPartners.map((group) => (
+                                        <div key={group.id} className="bg-white rounded px-2 py-1 text-xs border border-purple-200">
+                                          <div className="font-medium text-purple-800 mb-0.5">
+                                            {group.name}
+                                            {group.isModified && <span className="ml-1 text-amber-600">✎</span>}
+                                          </div>
+                                          <ul className="text-gray-600 space-y-0.5">
+                                            {group.playerIds.map((pid) => (
+                                              <li key={pid}>• {players.find((p) => p.id === pid)?.name || 'Unknown'}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             {stationDrill?.description && (
                               <div className="mt-2 text-xs text-purple-800 bg-purple-100 p-2 rounded whitespace-pre-wrap">
