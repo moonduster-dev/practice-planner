@@ -822,25 +822,32 @@ export default function RotationBuilder({
 
     // Check if rotation groups have been modified
     const partnersModified = hasModifiedPartners();
+    const effectiveGroups = getEffectiveGroups();
 
     // Convert stations to RotationDrill format
     // Each station becomes one RotationDrill, with drillId being the first drill
     // and additional info stored in extended fields
     const rotationDrillsForSave: RotationDrill[] = stations.map((station) => {
       const totalDuration = station.drills.reduce((sum, d) => sum + d.duration, 0);
-      // Build station-specific groups - prefer per-station groups over rotation groups
-      // Only include the groups that are assigned to this station
-      const hasStationGroups = station.stationGroups && Object.keys(station.stationGroups).length > 0;
-      const stationGroupsToSave: Record<string, Group> | undefined = (hasStationGroups || partnersModified)
-        ? Object.fromEntries(
-            station.assignedGroupIds
-              .filter((gId) => (station.stationGroups?.[gId] || rotationGroups[gId]))
-              .map((gId) => [gId, station.stationGroups?.[gId] || rotationGroups[gId]])
-          )
-        : undefined;
 
-      // Use effective groups for default group IDs
-      const effectiveGroups = getEffectiveGroups();
+      // Determine which group IDs this station uses
+      const stationGroupIds = station.assignedGroupIds.length > 0
+        ? station.assignedGroupIds
+        : effectiveGroups.map((g) => g.id);
+
+      // Build station-specific groups - prefer per-station groups over rotation groups
+      const hasStationGroups = station.stationGroups && Object.keys(station.stationGroups).length > 0;
+      let stationGroupsToSave: Record<string, Group> | undefined = undefined;
+
+      if (hasStationGroups || partnersModified) {
+        // Include all groups that this station uses, with their modified player assignments
+        stationGroupsToSave = Object.fromEntries(
+          stationGroupIds
+            .filter((gId) => (station.stationGroups?.[gId] || rotationGroups[gId]))
+            .map((gId) => [gId, station.stationGroups?.[gId] || rotationGroups[gId]])
+        );
+      }
+
       const rotationDrill: RotationDrill = {
         drillId: station.drills[0]?.drillId || '',
         drillIds: station.drills.map((d) => d.drillId), // All drills in this station
@@ -849,7 +856,7 @@ export default function RotationBuilder({
         duration: totalDuration,
         coachId: station.coachIds[0] || '',
         coachIds: station.coachIds,
-        groupIds: station.assignedGroupIds.length > 0 ? station.assignedGroupIds : effectiveGroups.map((g) => g.id),
+        groupIds: stationGroupIds,
         equipmentIds: [],
       };
       // Only include stationGroups if there are modified partners (Firestore doesn't allow undefined)
