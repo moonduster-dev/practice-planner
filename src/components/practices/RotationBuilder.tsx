@@ -799,23 +799,25 @@ export default function RotationBuilder({
   };
 
   const handleAutoAssignGroups = () => {
-    const effectiveGroups = getEffectiveGroups();
-    if (effectiveGroups.length === 0 || stations.length === 0) return;
+    // Only use non-empty groups
+    const nonEmptyGroups = getEffectiveGroups().filter(g => g.playerIds.length > 0);
+    if (nonEmptyGroups.length === 0 || stations.length === 0) return;
     const updated = stations.map((station, index) => {
-      const groupIndex = index % effectiveGroups.length;
+      const groupIndex = index % nonEmptyGroups.length;
       return {
         ...station,
-        assignedGroupIds: [effectiveGroups[groupIndex].id],
+        assignedGroupIds: [nonEmptyGroups[groupIndex].id],
       };
     });
     setStations(updated);
   };
 
   const handleAssignAllGroupsToAll = () => {
-    const effectiveGroups = getEffectiveGroups();
+    // Only use non-empty groups
+    const nonEmptyGroups = getEffectiveGroups().filter(g => g.playerIds.length > 0);
     const updated = stations.map((station) => ({
       ...station,
-      assignedGroupIds: effectiveGroups.map((g) => g.id),
+      assignedGroupIds: nonEmptyGroups.map((g) => g.id),
     }));
     setStations(updated);
   };
