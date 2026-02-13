@@ -406,7 +406,7 @@ Click **"Add Rotation to Practice"** (or **"Save Changes"** when editing).
 
 ## Sharing the Coach View
 
-The Coach View is a clean, shareable page showing the practice schedule.
+The Coach View is a clean, read-only page showing the practice schedule. It has no navigation bar or editing controls - just the practice plan, making it perfect for sharing with coaches and assistants.
 
 ### Accessing Coach View
 
