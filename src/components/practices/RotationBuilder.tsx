@@ -1596,10 +1596,15 @@ export default function RotationBuilder({
                     )}
 
                     {/* Group/Partner Assignment */}
-                    {groupArray.length > 0 && (
+                    {groupArray.length > 0 && (() => {
+                      // Filter to only show non-empty groups/partners
+                      const availableGroups = getEffectiveGroups().filter(g => g.type !== 'partner' && g.playerIds.length > 0);
+                      const availablePartners = getEffectiveGroups().filter(g => g.type === 'partner' && g.playerIds.length > 0);
+
+                      return (
                       <div className="space-y-3">
                         {/* Groups */}
-                        {getEffectiveGroups().filter(g => g.type !== 'partner').length > 0 && (
+                        {availableGroups.length > 0 && (
                           <div className="border border-blue-200 rounded-lg p-2 bg-blue-50/50">
                             <div className="flex items-center justify-between mb-2">
                               <label className="block text-sm font-medium text-blue-900">
@@ -1609,7 +1614,7 @@ export default function RotationBuilder({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const groupIds = getEffectiveGroups().filter(g => g.type !== 'partner').map(g => g.id);
+                                    const groupIds = availableGroups.map(g => g.id);
                                     const updated = [...stations];
                                     updated[stationIndex].assignedGroupIds = [...new Set([...station.assignedGroupIds, ...groupIds])];
                                     setStations(updated);
@@ -1622,7 +1627,7 @@ export default function RotationBuilder({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const groupIds = getEffectiveGroups().filter(g => g.type !== 'partner').map(g => g.id);
+                                    const groupIds = availableGroups.map(g => g.id);
                                     const updated = [...stations];
                                     updated[stationIndex].assignedGroupIds = station.assignedGroupIds.filter(id => !groupIds.includes(id));
                                     setStations(updated);
@@ -1634,7 +1639,7 @@ export default function RotationBuilder({
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-1.5">
-                              {getEffectiveGroups().filter(g => g.type !== 'partner').map((group) => (
+                              {availableGroups.map((group) => (
                                 <button
                                   key={group.id}
                                   type="button"
@@ -1653,7 +1658,7 @@ export default function RotationBuilder({
                         )}
 
                         {/* Partners */}
-                        {getEffectiveGroups().filter(g => g.type === 'partner').length > 0 && (
+                        {availablePartners.length > 0 && (
                           <div className="border border-purple-200 rounded-lg p-2 bg-purple-50/50">
                             <div className="flex items-center justify-between mb-2">
                               <label className="block text-sm font-medium text-purple-900">
@@ -1666,7 +1671,7 @@ export default function RotationBuilder({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const partnerIds = getEffectiveGroups().filter(g => g.type === 'partner').map(g => g.id);
+                                    const partnerIds = availablePartners.map(g => g.id);
                                     const updated = [...stations];
                                     updated[stationIndex].assignedGroupIds = [...new Set([...station.assignedGroupIds, ...partnerIds])];
                                     setStations(updated);
@@ -1679,7 +1684,7 @@ export default function RotationBuilder({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const partnerIds = getEffectiveGroups().filter(g => g.type === 'partner').map(g => g.id);
+                                    const partnerIds = availablePartners.map(g => g.id);
                                     const updated = [...stations];
                                     updated[stationIndex].assignedGroupIds = station.assignedGroupIds.filter(id => !partnerIds.includes(id));
                                     setStations(updated);
@@ -1691,7 +1696,7 @@ export default function RotationBuilder({
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-1.5">
-                              {getEffectiveGroups().filter(g => g.type === 'partner').map((group) => (
+                              {availablePartners.map((group) => (
                                 <button
                                   key={group.id}
                                   type="button"
@@ -1791,7 +1796,8 @@ export default function RotationBuilder({
                           />
                         )}
                       </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </Card>
               ))}
