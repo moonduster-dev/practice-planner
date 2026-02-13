@@ -39,9 +39,11 @@ export function createGroups(
 
 /**
  * Creates partner pairs from present players
- * Groups of 2, with one group of 3 if odd number of players
+ * @param presentPlayers - Array of players to pair up
+ * @param numberOfPartners - Optional number of partner groups to create (defaults to players/2)
+ * Groups of 2-3, distributing players as evenly as possible
  */
-export function createPartners(presentPlayers: Player[]): Group[] {
+export function createPartners(presentPlayers: Player[], numberOfPartners?: number): Group[] {
   if (presentPlayers.length === 0) {
     return [];
   }
@@ -49,34 +51,25 @@ export function createPartners(presentPlayers: Player[]): Group[] {
   // Shuffle players for random pairing
   const shuffled = [...presentPlayers].sort(() => Math.random() - 0.5);
 
-  const partners: Group[] = [];
-  const isOdd = shuffled.length % 2 === 1;
+  // Calculate number of partner groups
+  // Default: pairs (players/2), or use specified number
+  const defaultPartners = Math.ceil(shuffled.length / 2);
+  const actualPartners = numberOfPartners
+    ? Math.min(Math.max(1, numberOfPartners), shuffled.length) // Clamp between 1 and player count
+    : defaultPartners;
 
-  // Create pairs of 2
-  for (let i = 0; i < shuffled.length; i += 2) {
-    // Skip last player if odd - they'll be added to the last pair
-    if (isOdd && i === shuffled.length - 1) {
-      break;
-    }
+  // Initialize partner groups
+  const partners: Group[] = Array.from({ length: actualPartners }, (_, i) => ({
+    id: uuidv4(),
+    name: `Partners ${i + 1}`,
+    playerIds: [],
+  }));
 
-    const playerIds: string[] = [shuffled[i].id];
-
-    // Add second player
-    if (i + 1 < shuffled.length) {
-      playerIds.push(shuffled[i + 1].id);
-    }
-
-    partners.push({
-      id: uuidv4(),
-      name: `Partners ${partners.length + 1}`,
-      playerIds,
-    });
-  }
-
-  // If odd number, add the last player to the last pair (making it a trio)
-  if (isOdd && partners.length > 0) {
-    partners[partners.length - 1].playerIds.push(shuffled[shuffled.length - 1].id);
-  }
+  // Distribute players round-robin style (like groups)
+  shuffled.forEach((player, index) => {
+    const partnerIndex = index % actualPartners;
+    partners[partnerIndex].playerIds.push(player.id);
+  });
 
   return partners;
 }

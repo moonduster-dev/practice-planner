@@ -130,6 +130,7 @@ export default function GroupManager({
   const existingPartners = groupArray.filter(g => g.type === 'partner');
 
   const [numberOfGroups, setNumberOfGroups] = useState(existingGroups.length || 2);
+  const [numberOfPartners, setNumberOfPartners] = useState(existingPartners.length || Math.floor(presentPlayers.length / 2) || 2);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
@@ -143,9 +144,6 @@ export default function GroupManager({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor)
   );
-
-  // Calculate partner count
-  const partnerCount = Math.floor(presentPlayers.length / 2);
 
   // Get unassigned players
   const assignedToGroups = new Set(existingGroups.flatMap((g) => g.playerIds));
@@ -221,7 +219,7 @@ export default function GroupManager({
   };
 
   const handleCreatePartners = () => {
-    const newPartners = createPartners(presentPlayers);
+    const newPartners = createPartners(presentPlayers, numberOfPartners);
     const taggedPartners = newPartners.map(g => ({ ...g, type: 'partner' as const }));
     const groupsRecord: Record<string, Group> = {};
     existingGroups.forEach((g) => { groupsRecord[g.id] = g; });
@@ -448,9 +446,22 @@ export default function GroupManager({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center flex-wrap gap-2 mb-2">
+                <div className="flex items-center gap-1">
+                  <label className="text-xs text-gray-600">#:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={presentPlayers.length}
+                    value={numberOfPartners}
+                    onChange={(e) => setNumberOfPartners(parseInt(e.target.value) || 1)}
+                    className="w-12 px-1 py-0.5 border border-gray-300 rounded text-xs"
+                  />
+                </div>
                 <Button size="sm" onClick={handleCreatePartners}>Create</Button>
-                <span className="text-xs text-gray-500">({partnerCount} pairs{presentPlayers.length % 2 === 1 ? ' + trio' : ''})</span>
+                <span className="text-xs text-gray-500">
+                  (~{Math.ceil(presentPlayers.length / numberOfPartners)} per group)
+                </span>
               </div>
 
               {existingPartners.length > 0 ? (
