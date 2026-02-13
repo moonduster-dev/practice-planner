@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import Image from 'next/image';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Practice, Player, Drill, Coach, Group } from '@/types';
+import { Practice, Player, Drill, Coach, Group, SessionBlock } from '@/types';
 import { useFirestoreCollection } from '@/hooks/useFirestore';
 import { calculateBlockDuration } from '@/lib/timeEngine';
 
