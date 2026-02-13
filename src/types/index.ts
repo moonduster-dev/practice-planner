@@ -97,6 +97,7 @@ export interface DrillRating {
 
 export interface Practice {
   id: string;
+  name?: string; // Optional practice name (e.g., "Hitting Focus", "Game Prep")
   date: Date;
   totalMinutes: number;
   attendance: Record<string, boolean>;

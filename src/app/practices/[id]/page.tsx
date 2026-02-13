@@ -42,6 +42,7 @@ function PracticePageContent({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
 
   // Form state
+  const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [totalMinutes, setTotalMinutes] = useState(120);
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
@@ -66,6 +67,7 @@ function PracticePageContent({ id }: { id: string }) {
           const data = docSnap.data();
           const practiceData: Practice = {
             id: docSnap.id,
+            name: data.name || '',
             date: data.date?.toDate() || new Date(),
             totalMinutes: data.totalMinutes || 120,
             attendance: data.attendance || {},
@@ -79,6 +81,7 @@ function PracticePageContent({ id }: { id: string }) {
           };
 
           setPractice(practiceData);
+          setName(practiceData.name || '');
           setDate(practiceData.date.toISOString().split('T')[0]);
           setTotalMinutes(practiceData.totalMinutes);
           setAttendance(practiceData.attendance);
@@ -112,6 +115,7 @@ function PracticePageContent({ id }: { id: string }) {
     try {
       const docRef = doc(db, 'practices', id);
       await updateDoc(docRef, {
+        name,
         date: Timestamp.fromDate(new Date(date)),
         totalMinutes,
         attendance,
@@ -208,7 +212,7 @@ function PracticePageContent({ id }: { id: string }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Practice: {formatDate(date)}
+            {name ? name : 'Practice'}: {formatDate(date)}
           </h1>
           <p className="text-gray-600 capitalize">Status: {status}</p>
         </div>
@@ -261,6 +265,15 @@ function PracticePageContent({ id }: { id: string }) {
         <Card>
           <h3 className="font-medium text-gray-900 mb-3">Practice Details</h3>
           <div className="space-y-4">
+            <Input
+              id="name"
+              label="Practice Name (optional)"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Hitting Focus, Game Prep"
+              disabled={status === 'completed'}
+            />
             <Input
               id="date"
               label="Date"

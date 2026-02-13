@@ -164,7 +164,7 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
               />
               <div>
                 <h1 className="text-xl font-bold text-white">
-                  GC Falcons Practice Plan
+                  {practice.name ? practice.name : 'GC Falcons Practice Plan'}
                 </h1>
                 <p className="text-navy-200">
                   {practice.date.toLocaleDateString('en-US', {
@@ -190,31 +190,71 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
 
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Groups/Partners Overview */}
-        {groupArray.length > 0 && (
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 className="font-semibold text-navy-900 mb-3">Groups / Partners</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {groupArray.map((group) => (
-                <div
-                  key={group.id}
-                  className="bg-navy-50 border border-navy-200 rounded-lg p-3"
-                >
-                  <div className="font-medium text-navy-900 text-sm mb-2">
-                    {group.name}
-                    {group.playerIds.length === 3 && (
-                      <span className="ml-1 text-xs text-navy-600">(trio)</span>
-                    )}
-                  </div>
-                  <ul className="text-xs text-navy-700 space-y-0.5">
-                    {getPlayerNamesInGroup(group).map((name, idx) => (
-                      <li key={idx}>• {name}</li>
+        {groupArray.length > 0 && (() => {
+          const groups = groupArray.filter(g => g.type !== 'partner');
+          const partners = groupArray.filter(g => g.type === 'partner');
+
+          return (
+            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+              {/* Groups Section */}
+              {groups.length > 0 && (
+                <div className={partners.length > 0 ? 'mb-4' : ''}>
+                  <h2 className="font-semibold text-navy-900 mb-3 flex items-center gap-2">
+                    <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                    Groups
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {groups.map((group) => (
+                      <div
+                        key={group.id}
+                        className="bg-blue-50 border border-blue-200 rounded-lg p-3"
+                      >
+                        <div className="font-medium text-blue-900 text-sm mb-2">
+                          {group.name}
+                        </div>
+                        <ul className="text-xs text-blue-700 space-y-0.5">
+                          {getPlayerNamesInGroup(group).map((name, idx) => (
+                            <li key={idx}>• {name}</li>
+                          ))}
+                        </ul>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
-              ))}
+              )}
+
+              {/* Partners Section */}
+              {partners.length > 0 && (
+                <div>
+                  <h2 className="font-semibold text-navy-900 mb-3 flex items-center gap-2">
+                    <span className="w-3 h-3 bg-purple-500 rounded-full"></span>
+                    Partners
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {partners.map((group) => (
+                      <div
+                        key={group.id}
+                        className="bg-purple-50 border border-purple-200 rounded-lg p-3"
+                      >
+                        <div className="font-medium text-purple-900 text-sm mb-2">
+                          {group.name}
+                          {group.playerIds.length === 3 && (
+                            <span className="ml-1 text-xs text-purple-600">(trio)</span>
+                          )}
+                        </div>
+                        <ul className="text-xs text-purple-700 space-y-0.5">
+                          {getPlayerNamesInGroup(group).map((name, idx) => (
+                            <li key={idx}>• {name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Schedule */}
         <div className="space-y-4">

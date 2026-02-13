@@ -39,13 +39,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(AUTH_ENABLED); // Only show loading if auth is enabled
+  // Only show loading if auth is enabled AND auth is initialized
+  const [loading, setLoading] = useState(AUTH_ENABLED && !!auth);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     // If auth is disabled or auth not initialized, skip Firebase auth listener
     if (!AUTH_ENABLED || !auth) {
-      setLoading(false);
       return;
     }
 
