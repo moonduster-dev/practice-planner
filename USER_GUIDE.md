@@ -429,7 +429,8 @@ The Coach View displays:
   - Coach assignments
   - Drill descriptions and coach notes
   - Video links (expandable)
-  - Modified partner assignments (highlighted in amber)
+  - **Modified groups** (blue highlight) - when groups are customized for a specific drill
+  - **Modified partners** (purple highlight) - when partners are customized for a specific drill
 
 <!-- Screenshot: Coach View page -->
 
