@@ -346,10 +346,18 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
                   {block.type === 'rotation' && block.rotationDrills && (
                     <div className="mt-4 space-y-3">
                       {block.rotationDrills.map((rd, rdIndex) => {
-                        const stationDrill = drills.find((d) => d.id === rd.drillId);
+                        // Support multiple drills per station (drillIds) or single drill (drillId)
+                        const stationDrillIds = rd.drillIds && rd.drillIds.length > 0
+                          ? rd.drillIds
+                          : rd.drillId ? [rd.drillId] : [];
+                        const stationDrillDurations = rd.drillDurations && rd.drillDurations.length > 0
+                          ? rd.drillDurations
+                          : [rd.duration];
+                        const stationDrillsData = stationDrillIds.map((did, i) => ({
+                          drill: drills.find((d) => d.id === did),
+                          duration: stationDrillDurations[i] || rd.duration,
+                        }));
                         const stationCoaches = rd.coachIds?.map((cid) => coaches.find((c) => c.id === cid)?.name).filter(Boolean).join(', ');
-                        const stationEmbedInfo = stationDrill?.videoUrl ? getEmbedInfo(stationDrill.videoUrl) : null;
-                        const isStationVideoExpanded = expandedVideo === `${block.id}-${rdIndex}`;
 
                         // Get the actual group data for this station - use stationGroups if modified, otherwise practice.groups
                         const stationGroupsData = (rd.groupIds || []).map((gid) => {
@@ -371,9 +379,6 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
                                 <div className="font-medium text-purple-900">
                                   {rd.stationName || `Station ${rdIndex + 1}`}
                                 </div>
-                                <div className="text-sm text-purple-700">
-                                  {stationDrill?.title || 'Unknown Drill'}
-                                </div>
                                 {stationCoaches && (
                                   <div className="text-xs text-purple-600 mt-1">
                                     Coach: {stationCoaches}
@@ -383,6 +388,89 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
                               <div className="text-sm font-medium text-purple-700">
                                 {rd.duration} min
                               </div>
+                            </div>
+
+                            {/* List all drills in this station */}
+                            <div className="mt-2 space-y-2">
+                              {stationDrillsData.map(({ drill: stationDrill, duration: drillDuration }, drillIdx) => {
+                                const drillEmbedInfo = stationDrill?.videoUrl ? getEmbedInfo(stationDrill.videoUrl) : null;
+                                const isDrillVideoExpanded = expandedVideo === `${block.id}-${rdIndex}-${drillIdx}`;
+
+                                return (
+                                  <div key={drillIdx} className="bg-white border border-purple-100 rounded p-2">
+                                    <div className="flex items-start justify-between">
+                                      <div className="text-sm font-medium text-purple-800">
+                                        {stationDrillsData.length > 1 && <span className="text-purple-500 mr-1">{drillIdx + 1}.</span>}
+                                        {stationDrill?.title || 'Unknown Drill'}
+                                      </div>
+                                      <div className="text-xs text-purple-600">{drillDuration} min</div>
+                                    </div>
+
+                                    {stationDrill?.description && (
+                                      <div className="mt-1 text-xs text-gray-600 whitespace-pre-wrap">
+                                        {stationDrill.description}
+                                      </div>
+                                    )}
+
+                                    {stationDrill?.coachNotes && (
+                                      <div className="mt-1 text-xs text-amber-700 bg-amber-50 p-1.5 rounded whitespace-pre-wrap">
+                                        <span className="font-medium">Coach Notes:</span> {stationDrill.coachNotes}
+                                      </div>
+                                    )}
+
+                                    {stationDrill?.videoUrl && (
+                                      <div className="mt-1">
+                                        <button
+                                          onClick={() => setExpandedVideo(isDrillVideoExpanded ? null : `${block.id}-${rdIndex}-${drillIdx}`)}
+                                          className="inline-flex items-center text-xs text-purple-600 hover:text-purple-800"
+                                        >
+                                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          {isDrillVideoExpanded ? 'Hide Video' : 'Watch Video'}
+                                        </button>
+
+                                        {isDrillVideoExpanded && drillEmbedInfo && (
+                                          <div className="mt-2">
+                                            {drillEmbedInfo.needsClickThrough ? (
+                                              <a
+                                                href={stationDrill.videoUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
+                                              >
+                                                Open Video
+                                              </a>
+                                            ) : drillEmbedInfo.type === 'direct' ? (
+                                              <video
+                                                src={drillEmbedInfo.embedUrl}
+                                                controls
+                                                className="w-full rounded aspect-video"
+                                              />
+                                            ) : (
+                                              <iframe
+                                                src={drillEmbedInfo.embedUrl}
+                                                className="w-full rounded aspect-video"
+                                                allowFullScreen
+                                                title={stationDrill.title}
+                                              />
+                                            )}
+                                            <a
+                                              href={stationDrill.videoUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center mt-1 text-xs text-purple-600 hover:text-purple-800"
+                                            >
+                                              Open in new tab
+                                            </a>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
 
                             {/* Show groups/partners for this station with player names */}
@@ -440,62 +528,6 @@ export default function CoachViewPage({ params }: CoachViewPageProps) {
                               </div>
                             )}
 
-                            {stationDrill?.description && (
-                              <div className="mt-2 text-xs text-purple-800 bg-purple-100 p-2 rounded whitespace-pre-wrap">
-                                {stationDrill.description}
-                              </div>
-                            )}
-
-                            {stationDrill?.videoUrl && (
-                              <div className="mt-2">
-                                <button
-                                  onClick={() => setExpandedVideo(isStationVideoExpanded ? null : `${block.id}-${rdIndex}`)}
-                                  className="inline-flex items-center text-xs text-purple-600 hover:text-purple-800"
-                                >
-                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  {isStationVideoExpanded ? 'Hide Video' : 'Watch Video'}
-                                </button>
-
-                                {isStationVideoExpanded && stationEmbedInfo && (
-                                  <div className="mt-2">
-                                    {stationEmbedInfo.needsClickThrough ? (
-                                      <a
-                                        href={stationDrill.videoUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
-                                      >
-                                        Open Video
-                                      </a>
-                                    ) : stationEmbedInfo.type === 'direct' ? (
-                                      <video
-                                        src={stationEmbedInfo.embedUrl}
-                                        controls
-                                        className="w-full rounded aspect-video"
-                                      />
-                                    ) : (
-                                      <iframe
-                                        src={stationEmbedInfo.embedUrl}
-                                        className="w-full rounded aspect-video"
-                                        allowFullScreen
-                                        title={stationDrill.title}
-                                      />
-                                    )}
-                                    <a
-                                      href={stationDrill.videoUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center mt-1 text-xs text-purple-600 hover:text-purple-800"
-                                    >
-                                      Open in new tab
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-                            )}
                           </div>
                         );
                       })}
