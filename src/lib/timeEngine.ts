@@ -48,17 +48,35 @@ export function calculateRemainingTime(
   sessionBlocks: SessionBlock[],
   autoWaterBreaks: boolean = true
 ): TimeEngineResult {
-  // Calculate total used time from all blocks
-  const blocksTime = sessionBlocks.reduce(
+  // Separate manual water breaks from other blocks
+  const manualWaterBreaks = sessionBlocks.filter(
+    (block) => block.type === 'single' && block.notes === 'Water Break'
+  );
+  const drillBlocks = sessionBlocks.filter(
+    (block) => !(block.type === 'single' && block.notes === 'Water Break')
+  );
+
+  // Calculate drill time (excluding manual water breaks)
+  const drillTime = drillBlocks.reduce(
     (sum, block) => sum + calculateBlockDuration(block),
     0
   );
 
-  // Calculate water breaks if enabled
-  const waterBreaksInserted = autoWaterBreaks ? calculateWaterBreaks(blocksTime) : 0;
-  const waterBreakTime = waterBreaksInserted * WATER_BREAK_DURATION;
+  // Calculate manual water break time
+  const manualWaterBreakTime = manualWaterBreaks.reduce(
+    (sum, block) => sum + calculateBlockDuration(block),
+    0
+  );
 
-  const usedMinutes = blocksTime + waterBreakTime;
+  // Calculate auto water breaks needed, minus manual ones already present
+  let waterBreaksInserted = 0;
+  if (autoWaterBreaks) {
+    const breaksNeeded = calculateWaterBreaks(drillTime);
+    waterBreaksInserted = Math.max(0, breaksNeeded - manualWaterBreaks.length);
+  }
+  const autoWaterBreakTime = waterBreaksInserted * WATER_BREAK_DURATION;
+
+  const usedMinutes = drillTime + manualWaterBreakTime + autoWaterBreakTime;
   const remainingMinutes = totalMinutes - usedMinutes;
 
   return {
