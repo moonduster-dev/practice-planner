@@ -106,7 +106,7 @@ function DrillsPageContent() {
       </div>
 
       {/* Category Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-6">
         {categoryFilterOptions.slice(1).map((cat) => (
           <button
             key={cat.value}
