@@ -135,6 +135,7 @@ function MetricsPageContent() {
     fielding: { bg: 'bg-green-100', text: 'text-green-800', pie: '#4ade80' },
     pitching: { bg: 'bg-blue-100', text: 'text-blue-800', pie: '#60a5fa' },
     catching: { bg: 'bg-purple-100', text: 'text-purple-800', pie: '#c084fc' },
+    baserunning: { bg: 'bg-teal-100', text: 'text-teal-800', pie: '#2dd4bf' },
     iq: { bg: 'bg-yellow-100', text: 'text-yellow-800', pie: '#facc15' },
     games: { bg: 'bg-pink-100', text: 'text-pink-800', pie: '#f472b6' },
   };
@@ -145,6 +146,7 @@ function MetricsPageContent() {
     fielding: 'Fielding',
     pitching: 'Pitching',
     catching: 'Catching',
+    baserunning: 'Baserunning',
     iq: 'Game IQ',
     games: 'Games',
   };
