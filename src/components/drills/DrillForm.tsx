@@ -17,6 +17,7 @@ const categoryOptions = [
   { value: 'fielding', label: 'Fielding' },
   { value: 'pitching', label: 'Pitching' },
   { value: 'catching', label: 'Catching' },
+  { value: 'baserunning', label: 'Baserunning' },
   { value: 'iq', label: 'Game IQ' },
   { value: 'games', label: 'Games' },
 ];

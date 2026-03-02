@@ -12,7 +12,7 @@ export interface Player {
 }
 
 // Drill Types
-export type DrillCategory = 'warmup' | 'hitting' | 'fielding' | 'pitching' | 'catching' | 'iq' | 'games';
+export type DrillCategory = 'warmup' | 'hitting' | 'fielding' | 'pitching' | 'catching' | 'baserunning' | 'iq' | 'games';
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export interface Drill {
