@@ -164,7 +164,7 @@ function NewPracticePageContent() {
         <TimeEngineDisplay
           totalMinutes={totalMinutes}
           sessionBlocks={sessionBlocks}
-          autoWaterBreaks={true}
+          autoWaterBreaks={false}
         />
 
         <AttendanceCheckIn

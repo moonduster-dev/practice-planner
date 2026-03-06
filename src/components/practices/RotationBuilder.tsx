@@ -503,20 +503,25 @@ export default function RotationBuilder({
       setSimultaneousStations(editingBlock.simultaneousStations || false);
 
       if (editingBlock.rotationDrills && editingBlock.rotationDrills.length > 0) {
-        // Load rotation-level groups by merging ALL station groups
-        // Start with practice groups as base, then override with any saved station groups
+        // Load rotation-level groups by merging station groups with current practice groups
+        // Only include stationGroups that still exist in the current practice (avoid orphaned/duplicate groups)
         const mergedGroups: Record<string, Group> = {};
+        const practiceGroupIds = new Set(Object.keys(groups));
 
         // First, add all practice groups as base
         Object.values(groups).forEach((g) => {
           mergedGroups[g.id] = { ...g, playerIds: [...g.playerIds] };
         });
 
-        // Then, merge in any stationGroups from all stations (they may have modifications)
+        // Then, merge in stationGroups ONLY if they exist in current practice groups
+        // This preserves player assignment modifications while avoiding orphaned groups
         editingBlock.rotationDrills.forEach((rd) => {
           if (rd.stationGroups) {
             Object.entries(rd.stationGroups).forEach(([gId, group]) => {
-              mergedGroups[gId] = { ...group, playerIds: [...group.playerIds] };
+              // Only merge if this group still exists in current practice
+              if (practiceGroupIds.has(gId)) {
+                mergedGroups[gId] = { ...group, playerIds: [...group.playerIds] };
+              }
             });
           }
         });
@@ -534,13 +539,23 @@ export default function RotationBuilder({
             duration: drillDurations[i] || drills.find(d => d.id === dId)?.baseDuration || 10,
           }));
 
+          // Filter out orphaned group IDs that no longer exist in practice
+          const validGroupIds = (rd.groupIds || []).filter(gId => practiceGroupIds.has(gId));
+
+          // Only keep stationGroups that still exist in practice
+          const validStationGroups = rd.stationGroups
+            ? Object.fromEntries(
+                Object.entries(rd.stationGroups).filter(([gId]) => practiceGroupIds.has(gId))
+              )
+            : undefined;
+
           return {
             id: uuidv4(),
             name: rd.stationName || `Station ${index + 1}`,
             drills: stationDrills,
             coachIds: rd.coachIds || (rd.coachId ? [rd.coachId] : []),
-            assignedGroupIds: rd.groupIds || [],
-            stationGroups: rd.stationGroups,
+            assignedGroupIds: validGroupIds,
+            stationGroups: validStationGroups && Object.keys(validStationGroups).length > 0 ? validStationGroups : undefined,
           };
         });
         setStations(loadedStations);
