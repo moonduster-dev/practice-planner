@@ -44,6 +44,8 @@ const locationOptions = [
   { value: 'bullpen', label: 'Bullpen' },
   { value: 'outfield_grass', label: 'Outfield Grass' },
   { value: 'infield', label: 'Infield' },
+  { value: 'whole_field', label: 'Whole Field' },
+  { value: 'bench', label: 'Bench' },
 ];
 
 export default function DrillForm({ drill, equipment, onSubmit, onCancel }: DrillFormProps) {
