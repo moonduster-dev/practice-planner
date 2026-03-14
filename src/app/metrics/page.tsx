@@ -280,7 +280,7 @@ function MetricsPageContent() {
                       />
                     </div>
                   </div>
-                  <div className="w-20 text-right">
+                  <div className="shrink-0 text-right whitespace-nowrap">
                     <span className={`text-sm font-bold ${getAttendanceColor(percentage)}`}>
                       {percentage}%
                     </span>
